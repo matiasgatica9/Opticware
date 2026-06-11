@@ -11,15 +11,31 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
+  const devBypass = process.env.DEV_BYPASS_AUTH === "true"
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  let userData: any = null
 
-  const { data: userData } = await supabase
-    .from("users")
-    .select("*, tenants(*)")
-    .eq("id", user.id)
-    .single()
+  if (devBypass) {
+    // Demo mode: anon RLS policies allow reading dev tenant data without auth
+    const { data } = await supabase
+      .from("users")
+      .select("*, tenants(*)")
+      .limit(1)
+      .single()
+    userData = data
+  } else {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) redirect("/login")
+
+    const { data } = await supabase
+      .from("users")
+      .select("*, tenants(*)")
+      .eq("id", user.id)
+      .single()
+
+    userData = data
+    if (!userData) redirect("/login")
+  }
 
   if (!userData) redirect("/login")
 
