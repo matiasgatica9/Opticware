@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import type { EmailOtpType } from "@supabase/supabase-js"
 
+// En vez de verificar el OTP directamente (lo que permite que
+// escáneres de email consuman el token), redirigimos a una página
+// con un botón que el usuario debe clickear manualmente.
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const token_hash = searchParams.get("token_hash")
@@ -9,17 +11,10 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get("next") ?? "/dashboard"
 
   if (token_hash && type) {
-    const supabase = await createClient()
-    const { error } = await supabase.auth.verifyOtp({ type, token_hash })
-
-    if (!error) {
-      // Confirmación exitosa → redirigir
-      return NextResponse.redirect(new URL(next, origin))
-    }
+    // Redirigir a la página de confirmación con los params
+    const params = new URLSearchParams({ token_hash, type, next })
+    return NextResponse.redirect(new URL(`/auth/verify?${params}`, origin))
   }
 
-  // Link inválido o expirado
-  return NextResponse.redirect(
-    new URL("/login?error=link_invalido", origin)
-  )
+  return NextResponse.redirect(new URL("/login?error=link_invalido", origin))
 }

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
@@ -49,29 +48,19 @@ export default function NewProductPage() {
   async function onSubmit(data: FormData) {
     setLoading(true)
     setError(null)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push("/login"); return }
-    const { data: ud } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
-    if (!ud) { setError("Error de sesión"); setLoading(false); return }
-
-    const { data: product, error: err } = await supabase
-      .from("products")
-      .insert({
-        tenant_id: ud.tenant_id,
-        name:      data.name,
-        category:  data.category,
-        sku:       data.sku || null,
-        price:     data.price,
-        cost:      data.cost ?? null,
-        stock:     data.stock,
-        stock_min: data.stock_min,
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       })
-      .select("id")
-      .single()
-
-    if (err || !product) { setError("Error al guardar el producto"); setLoading(false); return }
-    router.push(`/stock/${product.id}`)
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? "Error al guardar el producto"); setLoading(false); return }
+      router.push(`/stock/${json.id}`)
+    } catch {
+      setError("Error de conexión")
+      setLoading(false)
+    }
   }
 
   return (

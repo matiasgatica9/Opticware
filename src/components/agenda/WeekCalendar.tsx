@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight, Plus, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
+import WhatsAppButton from "@/components/WhatsAppButton"
 
 const STATUS_STYLES: Record<string, string> = {
   pendiente:  "bg-yellow-50 text-yellow-700 border border-yellow-200",
@@ -30,7 +31,7 @@ interface Appointment {
   type: string
   status: string
   notes: string | null
-  patients: { first_name: string; last_name: string } | null
+  patients: { first_name: string; last_name: string; phone?: string | null } | null
 }
 
 export default function WeekCalendar({ appointments }: { appointments: Appointment[] }) {
@@ -120,27 +121,42 @@ export default function WeekCalendar({ appointments }: { appointments: Appointme
               {/* Appointments */}
               <div className="flex-1 p-1 space-y-1 overflow-hidden">
                 {apts.map(apt => (
-                  <Link
+                  <div
                     key={apt.id}
-                    href={`/agenda/${apt.id}`}
                     className={cn(
-                      "block rounded-lg px-2 py-1.5 text-[11px] transition-all hover:brightness-95 cursor-pointer",
+                      "rounded-lg px-2 py-1.5 text-[11px] transition-all",
                       STATUS_STYLES[apt.status] ?? "bg-gray-50 text-gray-600 border border-gray-200"
                     )}
                   >
-                    <div className="flex items-center gap-1 font-semibold">
-                      <Clock size={9} />
-                      {formatTime(apt.scheduled_at)}
-                    </div>
-                    <p className="truncate font-medium mt-0.5">
-                      {apt.patients
-                        ? `${apt.patients.last_name}, ${apt.patients.first_name[0]}.`
-                        : "—"}
-                    </p>
-                    <p className="text-[10px] opacity-60 truncate">
-                      {TYPE_LABELS[apt.type] ?? apt.type}
-                    </p>
-                  </Link>
+                    <Link href={`/agenda/${apt.id}`} className="block hover:brightness-95">
+                      <div className="flex items-center gap-1 font-semibold">
+                        <Clock size={9} />
+                        {formatTime(apt.scheduled_at)}
+                      </div>
+                      <p className="truncate font-medium mt-0.5">
+                        {apt.patients
+                          ? `${apt.patients.last_name}, ${apt.patients.first_name[0]}.`
+                          : "—"}
+                      </p>
+                      <p className="text-[10px] opacity-60 truncate">
+                        {TYPE_LABELS[apt.type] ?? apt.type}
+                      </p>
+                    </Link>
+                    {apt.patients?.phone && (
+                      <div className="mt-1">
+                        <WhatsAppButton
+                          phone={apt.patients.phone}
+                          patientName={`${apt.patients.first_name} ${apt.patients.last_name}`}
+                          size="sm"
+                          defaultTemplateIndex={1}
+                          extraData={{
+                            appointmentDate: new Date(apt.scheduled_at).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" }),
+                            appointmentTime: formatTime(apt.scheduled_at),
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
 

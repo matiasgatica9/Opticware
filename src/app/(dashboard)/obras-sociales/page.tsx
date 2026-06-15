@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { getTenantIdClient } from "@/lib/get-tenant-client"
 import { Plus, Heart, Pencil, Trash2, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -36,16 +37,14 @@ export default function ObrasSocialesPage() {
   }, [])
 
   async function load() {
+    const tid = await getTenantIdClient()
+    if (!tid) { setLoading(false); return }
+    setTenantId(tid)
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: ud } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
-    if (!ud) return
-    setTenantId(ud.tenant_id)
     const { data } = await supabase
       .from("obras_sociales")
       .select("*")
-      .eq("tenant_id", ud.tenant_id)
+      .eq("tenant_id", tid)
       .order("name")
     setItems(data ?? [])
     setLoading(false)

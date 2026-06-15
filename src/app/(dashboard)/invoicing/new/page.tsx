@@ -77,7 +77,7 @@ export default function NewInvoicePage() {
       if (!ud) return
 
       const [tenantRes, patientsRes, productsRes, osRes] = await Promise.all([
-        supabase.from("tenants").select("id, punto_venta").eq("id", ud.tenant_id).single(),
+        supabase.from("tenants").select("id, afip_punto_venta").eq("id", ud.tenant_id).single(),
         supabase.from("patients").select("id,first_name,last_name,dni,obra_social_id").eq("tenant_id", ud.tenant_id).eq("active", true).order("last_name"),
         supabase.from("products").select("id,name,price,stock,category,sku").eq("tenant_id", ud.tenant_id).eq("active", true).order("name"),
         supabase.from("obras_sociales").select("id,name,code,discount_percent,copago").eq("tenant_id", ud.tenant_id).eq("active", true).order("name"),
@@ -183,7 +183,7 @@ export default function NewInvoicePage() {
       p_tipo:      tipo,
     })
 
-    const invoiceNumber = formatInvoiceNum(tenantData.punto_venta ?? 1, nextNum)
+    const invoiceNumber = formatInvoiceNum(tenantData.afip_punto_venta ?? 1, nextNum)
 
     const { data: invoice, error: err } = await supabase
       .from("invoices")

@@ -1,12 +1,10 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { redirect, notFound } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { getTenantId } from "@/lib/get-tenant"
 import Link from "next/link"
-import { ArrowLeft, Printer, AlertTriangle, Pencil } from "lucide-react"
+import { ArrowLeft, Pencil, AlertTriangle } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { cn } from "@/lib/utils"
+import InvoiceActions from "./InvoiceActions"
 
 const CONDITION_LABELS: Record<string, string> = {
   consumidor_final:      "Consumidor Final",
@@ -15,37 +13,59 @@ const CONDITION_LABELS: Record<string, string> = {
   exento:                "IVA Exento",
 }
 
-export default function InvoiceDetailPage() {
-  const { id } = useParams() as { id: string }
-  const [invoice, setInvoice] = useState<any>(null)
-  const [tenant, setTenant]   = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+const PAYMENT_LABELS: Record<string, string> = {
+  efectivo:       "Efectivo",
+  tarjeta:        "Tarjeta",
+  transferencia:  "Transferencia",
+  mercadopago:    "MercadoPago",
+  cheque:         "Cheque",
+  cta_cte:        "Cuenta Corriente",
+  otro:           "Otro",
+}
 
-  useEffect(() => {
-    const load = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: ud } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
-      const [invRes, tenantRes] = await Promise.all([
-        supabase.from("invoices").select("*, sales(id), obras_sociales(name,discount_percent,copago)").eq("id", id).single(),
-        supabase.from("tenants").select("business_name, logo_url, primary_color, punto_venta").eq("id", ud?.tenant_id).single(),
-      ])
-      setInvoice(invRes.data)
-      setTenant(tenantRes.data)
-      setLoading(false)
-    }
-    load()
-  }, [id])
+export const dynamic = "force-dynamic"
 
-  if (loading) return <div className="h-40 flex items-center justify-center text-sm text-gray-400">Cargando...</div>
-  if (!invoice) return <div className="text-sm text-gray-500">Factura no encontrada.</div>
+export default async function InvoiceDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+
+  const supabase  = await createClient()
+  const tenantId  = await getTenantId(supabase)
+  if (!tenantId) redirect("/login")
+
+  const [invRes, tenantRes] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("*, obras_sociales(name, discount_percent, copago), patients(first_name, last_name, phone)")
+      .eq("id", id)
+      .eq("tenant_id", tenantId)
+      .single(),
+    supabase
+      .from("tenants")
+      .select("business_name, logo_url, primary_color, punto_venta")
+      .eq("id", tenantId)
+      .single(),
+  ])
+
+  if (!invRes.data) notFound()
+
+  const invoice = invRes.data
+  const tenant  = tenantRes.data
+
+  const patientPhone = (invoice.patients as any)?.phone ?? null
+  const businessName = tenant?.business_name ?? "la óptica"
 
   return (
     <div className="max-w-2xl space-y-5">
       {/* Nav */}
       <div className="flex items-center gap-3 print:hidden">
-        <Link href="/invoicing" className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors">
+        <Link
+          href="/invoicing"
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors"
+        >
           <ArrowLeft size={15} />
         </Link>
         <div className="flex-1">
@@ -59,32 +79,33 @@ export default function InvoiceDetailPage() {
           <Pencil size={14} />
           Editar
         </Link>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-        >
-          <Printer size={14} />
-          Imprimir
-        </button>
-        {invoice.sales?.id && (
-          <Link
-            href={`/sales/${invoice.sales.id}`}
-            className="text-xs text-emerald-700 hover:underline"
-          >
-            Ver venta
-          </Link>
-        )}
+        <InvoiceActions
+          invoiceNumber={invoice.invoice_number}
+          invoiceType={invoice.invoice_type}
+          total={formatCurrency(invoice.total)}
+          clientName={invoice.client_name}
+          defaultPhone={patientPhone}
+          businessName={businessName}
+          tenantId={tenantId}
+        />
       </div>
 
       {/* ── COMPROBANTE (imprimible) ── */}
-      <div id="invoice-print" className="bg-white rounded-xl border border-gray-200 overflow-hidden print:rounded-none print:border-none print:shadow-none">
+      <div
+        id="invoice-print"
+        className="bg-white rounded-xl border border-gray-200 overflow-hidden print:rounded-none print:border-none print:shadow-none"
+      >
         {/* Encabezado */}
         <div className="grid grid-cols-3 border-b border-gray-200">
           {/* Datos emisor */}
           <div className="col-span-2 p-6 border-r border-gray-200">
             <div className="flex items-center gap-3 mb-3">
               {tenant?.logo_url ? (
-                <img src={tenant.logo_url} alt={tenant?.business_name} className="h-10 w-auto object-contain" />
+                <img
+                  src={tenant.logo_url}
+                  alt={tenant.business_name}
+                  className="h-10 w-auto object-contain"
+                />
               ) : (
                 <div
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
@@ -97,6 +118,9 @@ export default function InvoiceDetailPage() {
                 <p className="font-bold text-gray-900 text-base">{tenant?.business_name}</p>
               </div>
             </div>
+            {tenant?.punto_venta && (
+              <p className="text-xs text-gray-400">Punto de venta: {String(tenant.punto_venta).padStart(4, "0")}</p>
+            )}
           </div>
 
           {/* Tipo de comprobante */}
@@ -134,6 +158,14 @@ export default function InvoiceDetailPage() {
                 {CONDITION_LABELS[invoice.client_condition] ?? invoice.client_condition}
               </span>
             </div>
+            {invoice.payment_method && (
+              <div>
+                <span className="text-gray-500 text-xs">Forma de pago:</span>
+                <span className="font-medium text-gray-900 ml-2">
+                  {PAYMENT_LABELS[invoice.payment_method] ?? invoice.payment_method}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -145,17 +177,21 @@ export default function InvoiceDetailPage() {
           </div>
         )}
 
+        {/* Obra social */}
+        {(invoice.obras_sociales as any) && (
+          <div className="mx-6 mt-4 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+            <span className="text-xs font-semibold text-emerald-700">Obra Social:</span>
+            <span className="text-xs text-emerald-800">{(invoice.obras_sociales as any).name}</span>
+            {(invoice.obras_sociales as any).discount_percent > 0 && (
+              <span className="text-xs text-emerald-600 ml-auto">
+                {(invoice.obras_sociales as any).discount_percent}% descuento
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Totales */}
         <div className="p-6">
-          {invoice.obras_sociales && (
-            <div className="mb-3 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-              <span className="text-xs font-semibold text-emerald-700">Obra Social:</span>
-              <span className="text-xs text-emerald-800">{invoice.obras_sociales.name}</span>
-              {invoice.obras_sociales.discount_percent > 0 && (
-                <span className="text-xs text-emerald-600 ml-auto">{invoice.obras_sociales.discount_percent}% descuento</span>
-              )}
-            </div>
-          )}
           <div className="flex flex-col items-end gap-1.5 text-sm">
             <div className="flex justify-between w-56">
               <span className="text-gray-500">Subtotal</span>
@@ -180,10 +216,20 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
 
-        {/* Footer comprobante */}
+        {/* CAE (si viene de AFIP) */}
+        {invoice.cae && (
+          <div className="mx-6 mb-4 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3 text-xs text-gray-500 font-mono">
+            <span className="font-semibold text-gray-700">CAE: </span>{invoice.cae}
+            {invoice.cae_expiry && (
+              <span className="ml-4">Vto: {formatDate(invoice.cae_expiry)}</span>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
         <div className="border-t border-gray-100 px-6 py-3 flex items-center justify-between">
           <p className="text-[10px] text-gray-400">
-            Comprobante generado por <span className="font-medium">OpticWare</span> · Desarrollado por VisualGest
+            Comprobante generado por <span className="font-medium">OpticWare</span>
           </p>
           <p className="text-[10px] text-gray-400">
             {invoice.afip_status === "emitida" ? "Emitido localmente" : invoice.afip_status}
@@ -195,7 +241,7 @@ export default function InvoiceDetailPage() {
       <style>{`
         @media print {
           body > * { display: none !important; }
-          #invoice-print { display: block !important; }
+          #invoice-print { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
           .print\\:hidden { display: none !important; }
         }
       `}</style>

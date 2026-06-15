@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { createClient } from "@/lib/supabase/client"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
@@ -34,44 +33,24 @@ export default function NewPatientPage() {
   async function onSubmit(data: FormData) {
     setLoading(true)
     setError(null)
-    const supabase = createClient()
 
-    // Obtener tenant_id del usuario actual
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push("/login"); return }
-
-    const { data: userData } = await supabase
-      .from("users")
-      .select("tenant_id")
-      .eq("id", user.id)
-      .single()
-
-    if (!userData) { setError("Error al obtener datos del usuario"); setLoading(false); return }
-
-    const { data: patient, error: insertError } = await supabase
-      .from("patients")
-      .insert({
-        tenant_id:  userData.tenant_id,
-        first_name: data.first_name,
-        last_name:  data.last_name,
-        dni:        data.dni || null,
-        phone:      data.phone || null,
-        email:      data.email || null,
-        birth_date: data.birth_date || null,
-        address:    data.address || null,
-        notes:      data.notes || null,
-        active:     true,
+    try {
+      const res = await fetch("/api/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       })
-      .select("id")
-      .single()
-
-    if (insertError || !patient) {
-      setError("Error al guardar el paciente")
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error ?? "Error al guardar el paciente")
+        setLoading(false)
+        return
+      }
+      router.push(`/patients/${json.id}`)
+    } catch {
+      setError("Error de conexión")
       setLoading(false)
-      return
     }
-
-    router.push(`/patients/${patient.id}`)
   }
 
   return (

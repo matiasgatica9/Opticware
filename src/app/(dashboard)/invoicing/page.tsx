@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getTenantId } from "@/lib/get-tenant"
 import Link from "next/link"
 import { Plus, FileText } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -15,15 +16,13 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default async function InvoicingPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: ud } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
-  if (!ud) return null
+  const tenantId = await getTenantId(supabase)
+  if (!tenantId) return null
 
   const { data: invoices } = await supabase
     .from("invoices")
     .select("*, sales(id, patients(first_name, last_name))")
-    .eq("tenant_id", ud.tenant_id)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(100)
 

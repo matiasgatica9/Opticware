@@ -1,20 +1,12 @@
 import { createClient } from "@/lib/supabase/server"
+import { getTenantId } from "@/lib/get-tenant"
 import { formatCurrency } from "@/lib/utils"
 import { Users, Calendar, ShoppingCart, AlertTriangle } from "lucide-react"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: userData } = await supabase
-    .from("users")
-    .select("tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!userData) return null
-  const tenantId = userData.tenant_id
+  const tenantId = await getTenantId(supabase)
+  if (!tenantId) return null
 
   const [patientsRes, appointmentsRes, salesRes, stockRes] = await Promise.all([
     supabase.from("patients").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("active", true),

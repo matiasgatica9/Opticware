@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getTenantId } from "@/lib/get-tenant"
 import Link from "next/link"
 import { Plus, Truck, Phone, Mail } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -25,15 +26,13 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default async function SuppliersPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: ud } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
-  if (!ud) return null
+  const tenantId = await getTenantId(supabase)
+  if (!tenantId) return null
 
   const { data: suppliers } = await supabase
     .from("suppliers")
     .select("*")
-    .eq("tenant_id", ud.tenant_id)
+    .eq("tenant_id", tenantId)
     .eq("active", true)
     .order("name")
 

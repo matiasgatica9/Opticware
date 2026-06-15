@@ -1,20 +1,13 @@
 import { createClient } from "@/lib/supabase/server"
+import { getTenantId } from "@/lib/get-tenant"
 import PatientList from "@/components/patients/PatientList"
 import Link from "next/link"
 import { UserPlus } from "lucide-react"
 
 export default async function PatientsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: userData } = await supabase
-    .from("users")
-    .select("tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!userData) return null
+  const tenantId = await getTenantId(supabase)
+  if (!tenantId) return null
 
   // Traer pacientes con la fecha de última receta
   const { data: patients } = await supabase
@@ -23,7 +16,7 @@ export default async function PatientsPage() {
       *,
       prescriptions(issued_date)
     `)
-    .eq("tenant_id", userData.tenant_id)
+    .eq("tenant_id", tenantId)
     .eq("active", true)
     .order("last_name", { ascending: true })
 

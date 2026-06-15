@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
+import { getTenantId } from "@/lib/get-tenant"
 import Link from "next/link"
 import { Plus, ShoppingCart, Pencil } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+import WhatsAppButton from "@/components/WhatsAppButton"
 
 const TYPE_STYLES: Record<string, string> = {
   A: "bg-blue-50 text-blue-700",
@@ -30,20 +32,13 @@ const METHOD_LABELS: Record<string, string> = {
 
 export default async function SalesPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: userData } = await supabase
-    .from("users")
-    .select("tenant_id")
-    .eq("id", user.id)
-    .single()
-  if (!userData) return null
+  const tenantId = await getTenantId(supabase)
+  if (!tenantId) return null
 
   const { data: invoices } = await supabase
     .from("invoices")
-    .select("*")
-    .eq("tenant_id", userData.tenant_id)
+    .select("*, patients(first_name, last_name, phone)")
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(200)
 
@@ -104,7 +99,7 @@ export default async function SalesPage() {
                 <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Estado</th>
                 <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Fecha</th>
                 <th className="text-right px-5 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Total</th>
-                <th className="w-12 px-5 py-2.5" />
+                <th className="w-24 px-5 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -146,14 +141,25 @@ export default async function SalesPage() {
                   <td className="px-5 py-3 text-right font-semibold text-gray-900">
                     {formatCurrency(inv.total)}
                   </td>
-                  <td className="px-5 py-3 text-center">
-                    <Link
-                      href={`/invoicing/${inv.id}/edit`}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity w-7 h-7 inline-flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                      title="Editar"
-                    >
-                      <Pencil size={12} />
-                    </Link>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {(inv as any).patients?.phone && (
+                        <WhatsAppButton
+                          phone={(inv as any).patients.phone}
+                          patientName={inv.client_name ?? `${(inv as any).patients.first_name} ${(inv as any).patients.last_name}`}
+                          size="sm"
+                          defaultTemplateIndex={2}
+                          extraData={{ invoiceNumber: inv.invoice_number ?? "" }}
+                        />
+                      )}
+                      <Link
+                        href={`/invoicing/${inv.id}/edit`}
+                        className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        title="Editar"
+                      >
+                        <Pencil size={12} />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

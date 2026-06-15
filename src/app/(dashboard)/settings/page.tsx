@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { getTenantIdClient } from "@/lib/get-tenant-client"
 import { Upload, Check, AlertCircle, Eye, EyeOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -87,17 +88,15 @@ export default function SettingsPage() {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: ud } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
-      if (!ud) return
-      setTenantId(ud.tenant_id)
-      const { data: tenant } = await supabase.from("tenants").select("*").eq("id", ud.tenant_id).single()
+      const tid = await getTenantIdClient()
+      if (!tid) return
+      setTenantId(tid)
+      const { data: tenant } = await supabase.from("tenants").select("*").eq("id", tid).single()
       if (!tenant) return
       setBusinessName(tenant.business_name ?? "")
       setPrimaryColor(tenant.primary_color ?? "#0F6E56")
       setLogoPreview(tenant.logo_url ?? null)
-      setPuntoVenta(tenant.punto_venta ?? "")
+      setPuntoVenta(tenant.afip_punto_venta?.toString() ?? "")
       setWpPhoneId(tenant.whatsapp_phone_id ?? "")
       setWpToken(tenant.whatsapp_token ?? "")
     }
@@ -122,37 +121,38 @@ export default function SettingsPage() {
     setUploading(false)
   }
 
+  async function patchTenant(fields: Record<string, unknown>, setLoading: (v: boolean) => void, setSaved: (v: boolean) => void) {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/tenant", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        setError(json.error ?? "Error al guardar")
+      } else {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2500)
+      }
+    } catch {
+      setError("Error de conexión")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function saveBranding() {
-    if (!tenantId) return
-    setBrandingLoading(true)
-    const supabase = createClient()
-    await supabase.from("tenants").update({ business_name: businessName, primary_color: primaryColor }).eq("id", tenantId)
-    setBrandingLoading(false)
-    setBrandingSaved(true)
-    setTimeout(() => setBrandingSaved(false), 2500)
+    await patchTenant({ business_name: businessName, primary_color: primaryColor }, setBrandingLoading, setBrandingSaved)
   }
 
   async function saveFactura() {
-    if (!tenantId) return
-    setFacturaLoading(true)
-    const supabase = createClient()
-    await supabase.from("tenants").update({ punto_venta: puntoVenta }).eq("id", tenantId)
-    setFacturaLoading(false)
-    setFacturaSaved(true)
-    setTimeout(() => setFacturaSaved(false), 2500)
+    await patchTenant({ punto_venta: puntoVenta }, setFacturaLoading, setFacturaSaved)
   }
 
   async function saveWhatsApp() {
-    if (!tenantId) return
-    setWpLoading(true)
-    const supabase = createClient()
-    await supabase.from("tenants").update({
-      whatsapp_phone_id: wpPhoneId || null,
-      whatsapp_token:    wpToken || null,
-    }).eq("id", tenantId)
-    setWpLoading(false)
-    setWpSaved(true)
-    setTimeout(() => setWpSaved(false), 2500)
+    await patchTenant({ whatsapp_phone_id: wpPhoneId || null, whatsapp_token: wpToken || null }, setWpLoading, setWpSaved)
   }
 
   return (
@@ -332,10 +332,10 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      {/* Footer VisualGest — no editable */}
+      {/* Footer OpticWare — no editable */}
       <div className="text-center py-2">
         <p className="text-xs text-gray-300">
-          OpticWare · Desarrollado por <span className="text-gray-400 font-medium">VisualGest</span>
+          OpticWare · Creado por <span className="text-gray-400 font-medium">OpticWare</span>
         </p>
       </div>
     </div>

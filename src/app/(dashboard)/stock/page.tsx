@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getTenantId } from "@/lib/get-tenant"
 import Link from "next/link"
 import { Plus, Package, AlertTriangle } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
@@ -30,16 +31,13 @@ export default async function StockPage({
 }) {
   const { category } = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: userData } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
-  if (!userData) return null
+  const tenantId = await getTenantId(supabase)
+  if (!tenantId) return null
 
   let query = supabase
     .from("products")
     .select("*")
-    .eq("tenant_id", userData.tenant_id)
+    .eq("tenant_id", tenantId)
     .eq("active", true)
     .order("name")
 

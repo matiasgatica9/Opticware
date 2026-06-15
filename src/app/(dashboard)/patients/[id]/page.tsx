@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ArrowLeft, Plus, Phone, Mail, MapPin, FileText, Calendar } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import PatientActions from "@/components/patients/PatientActions"
+import WhatsAppButton from "@/components/WhatsAppButton"
 
 const LENS_TYPE_LABELS: Record<string, string> = {
   monofocal:   "Monofocal",
@@ -113,9 +114,16 @@ export default async function PatientDetailPage({
             Contacto
           </h2>
           {patient.phone && (
-            <div className="flex items-center gap-2 text-sm text-gray-700">
-              <Phone size={13} className="text-gray-400" />
-              {patient.phone}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <Phone size={13} className="text-gray-400" />
+                {patient.phone}
+              </div>
+              <WhatsAppButton
+                phone={patient.phone}
+                patientName={`${patient.first_name} ${patient.last_name}`}
+                size="sm"
+              />
             </div>
           )}
           {patient.email && (

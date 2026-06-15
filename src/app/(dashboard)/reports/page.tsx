@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { getTenantIdClient } from "@/lib/get-tenant-client"
 import { formatCurrency } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 import {
@@ -167,11 +168,9 @@ export default function ReportsPage() {
     const load = async () => {
       setLoading(true)
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: ud } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
-      if (!ud) return
-      setTenantId(ud.tenant_id)
+      const tid = await getTenantIdClient()
+      if (!tid) { setLoading(false); return }
+      setTenantId(tid)
 
       const from = new Date()
       from.setDate(from.getDate() - period)
@@ -180,17 +179,17 @@ export default function ReportsPage() {
       const [salesRes, itemsRes, patientsRes] = await Promise.all([
         supabase.from("sales")
           .select("id, total, payment_method, status, created_at")
-          .eq("tenant_id", ud.tenant_id)
+          .eq("tenant_id", tid)
           .neq("status", "cancelado")
           .gte("created_at", fromIso)
           .order("created_at"),
         supabase.from("sale_items")
           .select("quantity, subtotal, products(name)")
-          .eq("tenant_id", ud.tenant_id)
+          .eq("tenant_id", tid)
           .gte("created_at", fromIso),
         supabase.from("patients")
           .select("created_at")
-          .eq("tenant_id", ud.tenant_id)
+          .eq("tenant_id", tid)
           .gte("created_at", fromIso),
       ])
 

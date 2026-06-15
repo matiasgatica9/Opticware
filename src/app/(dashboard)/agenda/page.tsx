@@ -1,16 +1,13 @@
 import { createClient } from "@/lib/supabase/server"
+import { getTenantId } from "@/lib/get-tenant"
 import WeekCalendar from "@/components/agenda/WeekCalendar"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 
 export default async function AgendaPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: userData } = await supabase
-    .from("users").select("tenant_id").eq("id", user.id).single()
-  if (!userData) return null
+  const tenantId = await getTenantId(supabase)
+  if (!tenantId) return null
 
   // 4 semanas atrás y 4 adelante para la navegación del calendario
   const from = new Date()
@@ -20,8 +17,8 @@ export default async function AgendaPage() {
 
   const { data: appointments } = await supabase
     .from("appointments")
-    .select("id, scheduled_at, duration_minutes, type, status, notes, patients(first_name, last_name)")
-    .eq("tenant_id", userData.tenant_id)
+    .select("id, scheduled_at, duration_minutes, type, status, notes, patients(first_name, last_name, phone)")
+    .eq("tenant_id", tenantId)
     .gte("scheduled_at", from.toISOString())
     .lte("scheduled_at", to.toISOString())
     .order("scheduled_at", { ascending: true })

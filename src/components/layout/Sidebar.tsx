@@ -167,7 +167,7 @@ export default function Sidebar({
           <div className="flex items-center gap-1 mt-2.5 px-0.5">
             <Code2 size={10} className="text-gray-300" />
             <span className="text-[10px] text-gray-300">
-              Desarrollado por <span className="text-gray-400 font-medium">VisualGest</span>
+              Creado por <span className="text-gray-400 font-medium">OpticWare</span>
             </span>
           </div>
         )}

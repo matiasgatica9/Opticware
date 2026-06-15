@@ -65,7 +65,7 @@ export default function ForgotPasswordPage() {
             <ArrowLeft size={14} /> Volver al login
           </a>
           <p className="text-center text-xs text-gray-400 mt-10">
-            Desarrollado por <span className="font-medium text-gray-500">VisualGest</span>
+            Creado por <span className="font-medium text-gray-500">OpticWare</span>
           </p>
         </div>
       </div>
@@ -124,7 +124,7 @@ export default function ForgotPasswordPage() {
         </p>
 
         <p className="text-center text-xs text-gray-400 mt-8">
-          Desarrollado por <span className="font-medium text-gray-500">VisualGest</span>
+          Creado por <span className="font-medium text-gray-500">OpticWare</span>
         </p>
       </div>
     </div>
