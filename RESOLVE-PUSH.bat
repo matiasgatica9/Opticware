@@ -14,7 +14,6 @@ del /f /q ".git\COMMIT_EDITMSG.swp" 2>nul
 echo       OK
 
 echo [2/5] Abortando rebase en curso...
-set GIT_EDITOR=true
 git -c core.editor=true rebase --abort 2>nul
 echo       OK
 
@@ -23,7 +22,7 @@ git add -A
 if errorlevel 1 ( echo ERROR en git add && pause && exit /b 1 )
 
 echo [4/5] Commiteando sin abrir editor...
-git -c core.editor=true commit -m "fix: resolver conflictos merge - Zod validation + server auth + WhatsApp color negro"
+git -c core.editor=true commit -m "fix: pantalla negra - forzar light mode, null safety en layout, error boundary"
 if errorlevel 1 ( echo No hay cambios nuevos, continuando... )
 
 echo [5/5] Pusheando a GitHub...

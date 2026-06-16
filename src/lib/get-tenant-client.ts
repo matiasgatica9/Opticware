@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client"
  * Uses the anon client + real user JWT from cookies.
  */
 export async function getTenantIdClient(): Promise<string | null> {
-  if (process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true") {
+  if (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true") {
     return process.env.NEXT_PUBLIC_DEV_TENANT_ID || null
   }
 

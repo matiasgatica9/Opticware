@@ -122,6 +122,7 @@ export default function NewInvoicePage() {
   function selectPatient(p: Patient) {
     setSelectedPatient(p)
     setClientName(`${p.last_name}, ${p.first_name}`)
+    setClientCuit(p.dni ?? "")
     setShowPatientDD(false)
     setPatientQuery("")
     // Auto-seleccionar obra social del paciente

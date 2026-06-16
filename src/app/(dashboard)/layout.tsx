@@ -21,9 +21,8 @@ export default async function DashboardLayout({
       .select("*, tenants(*)")
       .eq("id", user.id)
       .single()
-    
+
     if (!ud) {
-      // Create user if bypass is on but it's not in db yet
       const { data: tenant } = await supabase.from("tenants").select("*").limit(1).single()
       const tenantId = tenant?.id || process.env.DEV_TENANT_ID
       const { data: newUser } = await supabase
@@ -34,7 +33,7 @@ export default async function DashboardLayout({
           email: "dev@example.com",
           full_name: "Usuario Dev Bypass",
           role: "admin",
-          active: true
+          active: true,
         })
         .select("*, tenants(*)")
         .single()
@@ -43,23 +42,26 @@ export default async function DashboardLayout({
       userData = ud
     }
   } else {
-    // Verify session via cookie-based auth client (service role has no JWT)
     const authClient = await createAuthClient()
     const { data: { user: authUser } } = await authClient.auth.getUser()
     if (!authUser) redirect("/login")
     user = authUser
 
-    // Fetch user + tenant data using service role (or anon+cookies)
     const { data: ud } = await supabase
       .from("users")
       .select("*, tenants(*)")
       .eq("id", user.id)
       .single()
-    
+
     userData = ud
   }
 
-  if (!userData) redirect("/login")
+  if (!userData || !userData.tenants) {
+    // Auth user exists but no DB record / tenant — sign out to break any loop
+    const authClient = await createAuthClient()
+    await authClient.auth.signOut()
+    redirect("/login?error=no_profile")
+  }
 
   const tenant = userData.tenants as {
     id: string
@@ -68,12 +70,14 @@ export default async function DashboardLayout({
     primary_color: string
   }
 
-  const initials = (userData.full_name as string)
-    .split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
+  const fullName: string = userData.full_name ?? "Usuario"
+  const initials =
+    fullName
+      .split(" ")
+      .map((n: string) => n[0] ?? "")
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "U"
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -82,11 +86,11 @@ export default async function DashboardLayout({
         logoUrl={tenant.logo_url}
         primaryColor={tenant.primary_color}
         userInitials={initials}
-        userName={userData.full_name}
+        userName={fullName}
         userRole={userData.role}
       />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <Topbar userName={userData.full_name} />
+        <Topbar userName={fullName} />
         <main className="flex-1 overflow-y-auto p-5">{children}</main>
       </div>
     </div>

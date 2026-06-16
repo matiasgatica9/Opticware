@@ -19,24 +19,10 @@ CREATE TABLE IF NOT EXISTS tenants (
   afip_api_key    text,        -- TusFácturas API key (guardada encriptada)
   afip_punto_venta integer,
   whatsapp_phone_id text,      -- Meta Cloud API phone_number_id
-  whatsapp_token    text,      -- Meta Cloud API token (guardado encriptado)
+  whatsapp_token    text,      -- Meta Cloud API token (guardado encriptada)
   active          boolean NOT NULL DEFAULT true,
   created_at      timestamptz NOT NULL DEFAULT now()
 );
-
-ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-
--- Los tenants solo se pueden leer/modificar desde server-side (service role)
--- La RLS sobre esta tabla la manejan los usuarios vía su tenant_id
-CREATE POLICY "tenants_select" ON tenants
-  FOR SELECT USING (
-    id = (SELECT tenant_id FROM users WHERE id = auth.uid())
-  );
-
-CREATE POLICY "tenants_update" ON tenants
-  FOR UPDATE USING (
-    id = (SELECT tenant_id FROM users WHERE id = auth.uid())
-  );
 
 -- ============================================================
 -- USERS (tabla pública complementaria a auth.users)
@@ -52,16 +38,40 @@ CREATE TABLE IF NOT EXISTS users (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- ============================================================
+-- SECURITY DEFINER FUNCTION FOR RLS
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.get_auth_user_tenant()
+RETURNS uuid
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT tenant_id FROM users WHERE id = auth.uid();
+$$;
+
+ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "tenants_select" ON tenants
+  FOR SELECT USING (
+    id = public.get_auth_user_tenant()
+  );
+
+CREATE POLICY "tenants_update" ON tenants
+  FOR UPDATE USING (
+    id = public.get_auth_user_tenant()
+  );
+
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "users_select" ON users
   FOR SELECT USING (
-    tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid())
+    tenant_id = public.get_auth_user_tenant()
   );
 
 CREATE POLICY "users_update" ON users
   FOR UPDATE USING (
-    tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid())
+    tenant_id = public.get_auth_user_tenant()
   );
 
 -- ============================================================
@@ -85,7 +95,7 @@ CREATE TABLE IF NOT EXISTS patients (
 ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "patients_all" ON patients
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
+  USING (tenant_id = public.get_auth_user_tenant());
 
 CREATE INDEX patients_tenant_idx ON patients(tenant_id);
 CREATE INDEX patients_name_idx ON patients(tenant_id, last_name, first_name);
@@ -118,7 +128,7 @@ CREATE TABLE IF NOT EXISTS prescriptions (
 ALTER TABLE prescriptions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "prescriptions_all" ON prescriptions
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
+  USING (tenant_id = public.get_auth_user_tenant());
 
 CREATE INDEX prescriptions_patient_idx ON prescriptions(patient_id);
 
@@ -142,7 +152,7 @@ CREATE TABLE IF NOT EXISTS products (
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "products_all" ON products
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
+  USING (tenant_id = public.get_auth_user_tenant());
 
 CREATE INDEX products_tenant_idx ON products(tenant_id);
 CREATE INDEX products_category_idx ON products(tenant_id, category);
@@ -168,7 +178,7 @@ CREATE TABLE IF NOT EXISTS appointments (
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "appointments_all" ON appointments
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
+  USING (tenant_id = public.get_auth_user_tenant());
 
 CREATE INDEX appointments_tenant_date_idx ON appointments(tenant_id, scheduled_at);
 CREATE INDEX appointments_patient_idx ON appointments(patient_id);
@@ -198,7 +208,7 @@ CREATE TABLE IF NOT EXISTS sales (
 ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "sales_all" ON sales
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
+  USING (tenant_id = public.get_auth_user_tenant());
 
 CREATE INDEX sales_tenant_idx ON sales(tenant_id);
 CREATE INDEX sales_patient_idx ON sales(patient_id);
@@ -220,7 +230,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
 ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "sale_items_all" ON sale_items
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
+  USING (tenant_id = public.get_auth_user_tenant());
 
 -- ============================================================
 -- INVOICES
@@ -249,7 +259,7 @@ CREATE TABLE IF NOT EXISTS invoices (
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "invoices_all" ON invoices
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
+  USING (tenant_id = public.get_auth_user_tenant());
 
 CREATE INDEX invoices_tenant_idx ON invoices(tenant_id);
 CREATE INDEX invoices_sale_idx ON invoices(sale_id);

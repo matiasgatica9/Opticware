@@ -6,7 +6,7 @@ import { createAuthClient } from "@/lib/supabase/server"
  * using the provided supabase client (may be service role for RLS bypass).
  */
 export async function getTenantId(supabase: any): Promise<string | null> {
-  if (process.env.DEV_BYPASS_AUTH === "true" || process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true") {
+  if (process.env.NODE_ENV === "development" && (process.env.DEV_BYPASS_AUTH === "true" || process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true")) {
     return process.env.DEV_TENANT_ID || process.env.NEXT_PUBLIC_DEV_TENANT_ID || null
   }
 

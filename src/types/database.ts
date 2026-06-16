@@ -51,6 +51,9 @@ export interface Database {
           email: string | null
           phone: string | null
           birth_date: string | null
+          address: string | null
+          obra_social_id: string | null
+          obra_social_num: string | null
           notes: string | null
           active: boolean
           created_at: string
@@ -58,6 +61,21 @@ export interface Database {
         }
         Insert: Omit<Database["public"]["Tables"]["patients"]["Row"], "id" | "created_at" | "updated_at">
         Update: Partial<Database["public"]["Tables"]["patients"]["Insert"]>
+      },
+      obras_sociales: {
+        Row: {
+          id: string
+          tenant_id: string
+          name: string
+          code: string | null
+          discount_percent: number
+          copago: number
+          notes: string | null
+          active: boolean
+          created_at: string
+        }
+        Insert: Omit<Database["public"]["Tables"]["obras_sociales"]["Row"], "id" | "created_at">
+        Update: Partial<Database["public"]["Tables"]["obras_sociales"]["Insert"]>
       }
       prescriptions: {
         Row: {
@@ -185,6 +203,7 @@ export interface Database {
 export type Tenant = Database["public"]["Tables"]["tenants"]["Row"]
 export type User = Database["public"]["Tables"]["users"]["Row"]
 export type Patient = Database["public"]["Tables"]["patients"]["Row"]
+export type ObraSocial = Database["public"]["Tables"]["obras_sociales"]["Row"]
 export type Prescription = Database["public"]["Tables"]["prescriptions"]["Row"]
 export type Product = Database["public"]["Tables"]["products"]["Row"]
 export type Appointment = Database["public"]["Tables"]["appointments"]["Row"]
