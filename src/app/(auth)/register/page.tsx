@@ -20,6 +20,8 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [emailSent, setEmailSent] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
+  const [resendMsg, setResendMsg] = useState<string | null>(null)
 
   const {
     register,
@@ -60,6 +62,22 @@ export default function RegisterPage() {
     setLoading(false)
   }
 
+  async function handleResend() {
+    if (!emailSent) return
+    setResending(true)
+    setResendMsg(null)
+    const supabase = createClient()
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: emailSent,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard`,
+      },
+    })
+    setResendMsg(error ? "No se pudo reenviar. Intentá de nuevo." : "¡Reenviado! Revisá tu bandeja.")
+    setResending(false)
+  }
+
   // Estado post-registro: pantalla de "revisá tu email"
   if (emailSent) {
     return (
@@ -79,9 +97,19 @@ export default function RegisterPage() {
             Hacé clic en el link del email para activar tu cuenta y empezar a
             usar OpticWare.
           </p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400 mb-4">
             ¿No llegó? Revisá la carpeta de spam.
           </p>
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="text-sm text-emerald-700 font-medium hover:underline disabled:opacity-50"
+          >
+            {resending ? "Reenviando..." : "Volver a enviar el email"}
+          </button>
+          {resendMsg && (
+            <p className="text-xs mt-2 text-gray-500">{resendMsg}</p>
+          )}
           <p className="text-center text-xs text-gray-400 mt-10">
             Creado por{" "}
             <span className="font-medium text-gray-500">OpticWare</span>

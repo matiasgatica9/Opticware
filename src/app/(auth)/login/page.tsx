@@ -8,8 +8,13 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/client"
 import { Suspense } from "react"
 
+// Detecta si el valor es un teléfono (solo dígitos, espacios, guiones, +, paréntesis)
+function isPhone(value: string) {
+  return /^[\d\s\-\+\(\)]{7,}$/.test(value.trim())
+}
+
 const loginSchema = z.object({
-  email: z.string().email("Email inválido"),
+  identifier: z.string().min(1, "Ingresá tu email o teléfono"),
   password: z.string().min(6, "Mínimo 6 caracteres"),
 })
 
@@ -36,18 +41,31 @@ function LoginForm() {
     setError(null)
     const supabase = createClient()
 
+    let email = data.identifier.trim()
+
+    // Si parece teléfono, buscar el email asociado
+    if (isPhone(email)) {
+      const { data: foundEmail, error: rpcErr } = await supabase
+        .rpc("get_email_by_phone", { p_phone: email })
+
+      if (rpcErr || !foundEmail) {
+        setError("No encontramos una cuenta con ese número de teléfono.")
+        setLoading(false)
+        return
+      }
+      email = foundEmail as string
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
+      email,
       password: data.password,
     })
 
     if (error) {
       if (error.message.includes("Email not confirmed")) {
         setError("Confirmá tu email antes de ingresar. Revisá tu bandeja de entrada.")
-      } else if (error.message.includes("Invalid login credentials")) {
-        setError("Email o contraseña incorrectos.")
       } else {
-        setError("Email o contraseña incorrectos.")
+        setError("Credenciales incorrectas.")
       }
       setLoading(false)
       return
@@ -72,17 +90,17 @@ function LoginForm() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              Email o teléfono
             </label>
             <input
-              {...register("email")}
-              type="email"
-              autoComplete="email"
-              placeholder="nombre@optica.com"
+              {...register("identifier")}
+              type="text"
+              autoComplete="username"
+              placeholder="nombre@optica.com o 351 123 4567"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
             />
-            {errors.email && (
-              <p className="text-xs text-red-600 mt-1">{errors.email.message}</p>
+            {errors.identifier && (
+              <p className="text-xs text-red-600 mt-1">{errors.identifier.message}</p>
             )}
           </div>
 
