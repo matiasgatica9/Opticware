@@ -195,7 +195,7 @@ export default function NewInvoicePage() {
         .insert({
           tenant_id:      tenantData.id,
           patient_id:     selectedPatient?.id ?? null,
-          status:         "completada",
+          status:         "entregado",
           payment_method: paymentMethod,
           subtotal,
           discount:       discountAmount,
