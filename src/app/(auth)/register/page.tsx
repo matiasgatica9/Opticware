@@ -49,6 +49,8 @@ export default function RegisterPage() {
     if (authError) {
       if (authError.message.includes("already registered")) {
         setError("Ese email ya tiene una cuenta. ¿Querés ingresar?")
+      } else if (authError.message.includes("rate limit")) {
+        setError("Se enviaron demasiados emails. Esperá unos minutos e intentá de nuevo.")
       } else {
         setError(authError.message)
       }
