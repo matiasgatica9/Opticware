@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient, createAuthClient } from "@/lib/supabase/server"
 import Sidebar from "@/components/layout/Sidebar"
 import Topbar from "@/components/layout/Topbar"
+import BottomNav from "@/components/layout/BottomNav"
 
 export const dynamic = "force-dynamic"
 
@@ -98,8 +99,11 @@ export default async function DashboardLayout({
       />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar userName={fullName} />
-        <main className="flex-1 overflow-y-auto p-5">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-5 pb-20 md:pb-5">
+          {children}
+        </main>
       </div>
+      <BottomNav primaryColor={tenant.primary_color} />
     </div>
   )
 }

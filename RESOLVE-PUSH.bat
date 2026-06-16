@@ -22,7 +22,7 @@ git add -A
 if errorlevel 1 ( echo ERROR en git add && pause && exit /b 1 )
 
 echo [4/5] Commiteando sin abrir editor...
-git -c core.editor=true commit -m "feat: login con telefono + reenvio email en registro"
+git -c core.editor=true commit -m "feat: mobile responsive — bottom nav, sidebar oculto en mobile, topbar adaptado"
 if errorlevel 1 ( echo No hay cambios nuevos, continuando... )
 
 echo [5/5] Pusheando a GitHub...

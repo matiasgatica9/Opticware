@@ -75,9 +75,9 @@ export default function Topbar({ userName }: TopbarProps) {
   const totalCount = notifications.length
 
   return (
-    <header className="h-[54px] bg-white border-b border-gray-100 flex items-center justify-between px-5 flex-shrink-0">
-      {/* Search */}
-      <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 w-[260px]">
+    <header className="h-[54px] bg-white border-b border-gray-100 flex items-center justify-between px-4 md:px-5 flex-shrink-0">
+      {/* Search — solo desktop */}
+      <div className="hidden md:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 w-[260px]">
         <Search size={14} className="text-gray-400" />
         <input
           type="text"
@@ -85,6 +85,9 @@ export default function Topbar({ userName }: TopbarProps) {
           className="bg-transparent text-sm text-gray-600 placeholder-gray-400 outline-none flex-1"
         />
       </div>
+
+      {/* Título — solo mobile */}
+      <span className="md:hidden text-base font-semibold text-gray-800">OpticWare</span>
 
       {/* Right side */}
       <div className="flex items-center gap-2">
