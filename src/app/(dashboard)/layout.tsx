@@ -14,7 +14,7 @@ export default async function DashboardLayout({
   let userData: any = null
   const supabase = await createClient()
 
-  if (process.env.DEV_BYPASS_AUTH === "true") {
+  if (process.env.NODE_ENV === "development" && process.env.DEV_BYPASS_AUTH === "true") {
     user = { id: process.env.DEV_USER_ID }
     const { data: ud } = await supabase
       .from("users")
