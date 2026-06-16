@@ -22,7 +22,7 @@ git add -A
 if errorlevel 1 ( echo ERROR en git add && pause && exit /b 1 )
 
 echo [4/5] Commiteando sin abrir editor...
-git -c core.editor=true commit -m "fix: layout usa authClient para query de perfil, auth/confirm PKCE+OTP"
+git -c core.editor=true commit -m "fix: invoice_items, auto-sale on emit, stock decrement, item detail view"
 if errorlevel 1 ( echo No hay cambios nuevos, continuando... )
 
 echo [5/5] Pusheando a GitHub...

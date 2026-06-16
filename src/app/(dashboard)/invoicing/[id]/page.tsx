@@ -36,7 +36,7 @@ export default async function InvoiceDetailPage({
   const tenantId  = await getTenantId(supabase)
   if (!tenantId) redirect("/login")
 
-  const [invRes, tenantRes] = await Promise.all([
+  const [invRes, tenantRes, itemsRes] = await Promise.all([
     supabase
       .from("invoices")
       .select("*, obras_sociales(name, discount_percent, copago), patients(first_name, last_name, phone)")
@@ -48,12 +48,18 @@ export default async function InvoiceDetailPage({
       .select("business_name, logo_url, primary_color, punto_venta")
       .eq("id", tenantId)
       .single(),
+    supabase
+      .from("invoice_items")
+      .select("id, description, quantity, unit_price, subtotal")
+      .eq("invoice_id", id)
+      .order("created_at"),
   ])
 
   if (!invRes.data) notFound()
 
-  const invoice = invRes.data
-  const tenant  = tenantRes.data
+  const invoice      = invRes.data
+  const tenant       = tenantRes.data
+  const invoiceItems = itemsRes.data ?? []
 
   const patientPhone = (invoice.patients as any)?.phone ?? null
   const businessName = tenant?.business_name ?? "la óptica"
@@ -187,6 +193,32 @@ export default async function InvoiceDetailPage({
                 {(invoice.obras_sociales as any).discount_percent}% descuento
               </span>
             )}
+          </div>
+        )}
+
+        {/* Detalle de ítems */}
+        {invoiceItems.length > 0 && (
+          <div className="px-6 pb-2 mt-2">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left text-xs text-gray-400 font-medium pb-2">Descripción</th>
+                  <th className="text-center text-xs text-gray-400 font-medium pb-2 w-16">Cant.</th>
+                  <th className="text-right text-xs text-gray-400 font-medium pb-2 w-28">Precio unit.</th>
+                  <th className="text-right text-xs text-gray-400 font-medium pb-2 w-28">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoiceItems.map(item => (
+                  <tr key={item.id} className="border-b border-gray-50">
+                    <td className="py-2 text-gray-800">{item.description}</td>
+                    <td className="py-2 text-center text-gray-600">{item.quantity}</td>
+                    <td className="py-2 text-right text-gray-600">{formatCurrency(item.unit_price)}</td>
+                    <td className="py-2 text-right font-medium text-gray-800">{formatCurrency(item.subtotal)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 

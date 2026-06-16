@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 
 const IVA_RATE = 0.21
 
-interface Item { description: string; quantity: number; unit_price: number }
+interface Item { description: string; quantity: number; unit_price: number; product_id?: string | null }
 interface Patient { id: string; first_name: string; last_name: string; dni: string | null; obra_social_id: string | null }
 interface Product { id: string; name: string; price: number; stock: number; category: string | null; sku: string | null }
 interface ObraSocial { id: string; name: string; code: string | null; discount_percent: number; copago: number }
@@ -142,9 +142,9 @@ export default function NewInvoicePage() {
     setItems(prev => {
       const last = prev[prev.length - 1]
       if (last && !last.description.trim() && last.unit_price === 0) {
-        return [...prev.slice(0, -1), { description: p.name, quantity: 1, unit_price: Number(p.price) }]
+        return [...prev.slice(0, -1), { description: p.name, quantity: 1, unit_price: Number(p.price), product_id: p.id }]
       }
-      return [...prev, { description: p.name, quantity: 1, unit_price: Number(p.price) }]
+      return [...prev, { description: p.name, quantity: 1, unit_price: Number(p.price), product_id: p.id }]
     })
     setProductQuery("")
     setShowProductDD(false)
@@ -186,11 +186,54 @@ export default function NewInvoicePage() {
 
     const invoiceNumber = formatInvoiceNum(tenantData.afip_punto_venta ?? 1, nextNum)
 
+    // ── 1. Crear la venta si no viene de una existente ──────────────────
+    let activeSaleId = linkedSaleId
+    if (!activeSaleId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: newSale, error: saleErr } = await supabase
+        .from("sales")
+        .insert({
+          tenant_id:      tenantData.id,
+          patient_id:     selectedPatient?.id ?? null,
+          status:         "completada",
+          payment_method: paymentMethod,
+          subtotal,
+          discount:       discountAmount,
+          total,
+          created_by:     user?.id ?? null,
+        })
+        .select("id")
+        .single()
+
+      if (saleErr || !newSale) {
+        setError("Error al registrar la venta")
+        setLoading(false)
+        return
+      }
+      activeSaleId = newSale.id
+
+      // Insertar sale_items
+      const saleItemsToInsert = items
+        .filter(i => i.description.trim())
+        .map(i => ({
+          sale_id:    activeSaleId,
+          tenant_id:  tenantData.id,
+          product_id: i.product_id ?? null,
+          quantity:   i.quantity,
+          unit_price: i.unit_price,
+          subtotal:   i.quantity * i.unit_price,
+        }))
+      if (saleItemsToInsert.length > 0) {
+        await supabase.from("sale_items").insert(saleItemsToInsert)
+      }
+    }
+
+    // ── 2. Crear la factura ──────────────────────────────────────────────
     const { data: invoice, error: err } = await supabase
       .from("invoices")
       .insert({
         tenant_id:        tenantData.id,
-        sale_id:          linkedSaleId ?? null,
+        sale_id:          activeSaleId ?? null,
         patient_id:       selectedPatient?.id ?? null,
         invoice_number:   invoiceNumber,
         invoice_type:     tipo,
@@ -215,9 +258,32 @@ export default function NewInvoicePage() {
       return
     }
 
-    // Si viene de una venta, vincularla
-    if (linkedSaleId) {
-      await supabase.from("sales").update({ invoice_id: invoice.id }).eq("id", linkedSaleId)
+    // Vincular invoice_id en la venta
+    await supabase.from("sales").update({ invoice_id: invoice.id }).eq("id", activeSaleId!)
+
+    // ── 3. Guardar invoice_items ─────────────────────────────────────────
+    const invoiceItemsToInsert = items
+      .filter(i => i.description.trim())
+      .map(i => ({
+        invoice_id:  invoice.id,
+        tenant_id:   tenantData.id,
+        product_id:  i.product_id ?? null,
+        description: i.description,
+        quantity:    i.quantity,
+        unit_price:  i.unit_price,
+        subtotal:    i.quantity * i.unit_price,
+      }))
+    if (invoiceItemsToInsert.length > 0) {
+      await supabase.from("invoice_items").insert(invoiceItemsToInsert)
+    }
+
+    // ── 4. Decrementar stock ─────────────────────────────────────────────
+    const productItems = items.filter(i => i.product_id && i.quantity > 0)
+    for (const item of productItems) {
+      await supabase.rpc("decrement_stock", {
+        p_product_id: item.product_id,
+        p_quantity:   item.quantity,
+      })
     }
 
     router.push(`/invoicing/${invoice.id}`)
