@@ -28,9 +28,13 @@ export async function middleware(request: NextRequest) {
   const isAuthPath = AUTH_PATHS.some((p) => pathname.startsWith(p))
   const isApiPath = pathname.startsWith("/api/")
 
-  if (isAuthPath || isApiPath) {
-    const limit = isAuthPath ? 5 : 120
-    const allowed = rateLimit(`${ip}:${pathname}`, limit, 60_000)
+  // Solo limitar POST en rutas de auth (anti fuerza bruta en submit) y todas las API
+  const isAuthPost = isAuthPath && request.method === "POST"
+
+  if (isAuthPost || isApiPath) {
+    const limit = isAuthPost ? 10 : 200
+    const key = isAuthPost ? `${ip}:auth-post` : `${ip}:${pathname}`
+    const allowed = rateLimit(key, limit, 60_000)
 
     if (!allowed) {
       const body = isApiPath
