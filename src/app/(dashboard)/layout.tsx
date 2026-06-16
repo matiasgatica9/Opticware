@@ -47,11 +47,18 @@ export default async function DashboardLayout({
     if (!authUser) redirect("/login")
     user = authUser
 
-    const { data: ud } = await supabase
+    // Usar authClient (cookie-based) para la query de perfil.
+    // Esto evita depender del service role key y usa la sesión del usuario
+    // con las políticas RLS normales (users_select: id = auth.uid()).
+    const { data: ud, error: profileError } = await authClient
       .from("users")
       .select("*, tenants(*)")
       .eq("id", user.id)
       .single()
+
+    if (profileError) {
+      console.error("[layout] profile query error:", profileError.message, profileError.code)
+    }
 
     userData = ud
   }
