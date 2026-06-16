@@ -22,7 +22,7 @@ git add -A
 if errorlevel 1 ( echo ERROR en git add && pause && exit /b 1 )
 
 echo [4/5] Commiteando sin abrir editor...
-git -c core.editor=true commit -m "fix: pantalla negra - forzar light mode, null safety en layout, error boundary"
+git -c core.editor=true commit -m "fix: light mode, null safety layout, notificaciones funcionales (stock bajo + turnos hoy)"
 if errorlevel 1 ( echo No hay cambios nuevos, continuando... )
 
 echo [5/5] Pusheando a GitHub...
