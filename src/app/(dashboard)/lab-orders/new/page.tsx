@@ -4,7 +4,15 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
-import { ArrowLeft, Search } from "lucide-react"
+import { ArrowLeft, Search, DollarSign } from "lucide-react"
+
+const PAYMENT_METHODS = [
+  { value: "efectivo",      label: "Efectivo" },
+  { value: "transferencia", label: "Transferencia" },
+  { value: "debito",        label: "Débito" },
+  { value: "credito",       label: "Crédito" },
+  { value: "mercadopago",   label: "MercadoPago" },
+]
 
 const WORK_TYPES = [
   { value: "lentes",      label: "Lentes oftálmicos" },
@@ -21,12 +29,12 @@ export default function NewLabOrderPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [loading, setLoading]           = useState(false)
-  const [error, setError]               = useState<string | null>(null)
-  const [patients, setPatients]         = useState<Patient[]>([])
+  const [loading, setLoading]             = useState(false)
+  const [error, setError]                 = useState<string | null>(null)
+  const [patients, setPatients]           = useState<Patient[]>([])
   const [patientSearch, setPatientSearch] = useState("")
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
-  const [showDropdown, setShowDropdown] = useState(false)
+  const [showDropdown, setShowDropdown]   = useState(false)
 
   const [form, setForm] = useState({
     work_type:        "lentes",
@@ -36,6 +44,11 @@ export default function NewLabOrderPage() {
     estimated_days:   "",
     order_date:       new Date().toISOString().slice(0, 10),
     notes:            "",
+    // pago
+    price:            "",
+    payment_type:     "ninguno", // ninguno | seña | total
+    deposit:          "",
+    deposit_method:   "efectivo",
   })
 
   // Buscar pacientes
@@ -68,27 +81,56 @@ export default function NewLabOrderPage() {
       estimated_return = d.toISOString().slice(0, 10)
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
+    // Calcular campos de pago
+    const today = new Date().toISOString().slice(0, 10)
+    const priceNum   = form.price   ? parseFloat(form.price)   : null
+    const depositNum = form.deposit ? parseFloat(form.deposit) : null
 
-    // Obtener tenant_id
+    let depositValue: number | null = null
+    let depositDate:  string | null = null
+    let depositMethod: string | null = null
+    let balancePaidDate: string | null = null
+    let balanceMethod: string | null = null
+
+    if (form.payment_type === "seña" && depositNum && depositNum > 0) {
+      depositValue  = depositNum
+      depositDate   = today
+      depositMethod = form.deposit_method
+    } else if (form.payment_type === "total" && priceNum && priceNum > 0) {
+      // Pago total hoy
+      depositValue    = priceNum
+      depositDate     = today
+      depositMethod   = form.deposit_method
+      balancePaidDate = today
+      balanceMethod   = form.deposit_method
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
     const { data: userData } = await supabase
       .from("users").select("tenant_id").eq("id", user!.id).single()
 
     const { data: order, error: err } = await supabase
       .from("lab_orders")
       .insert({
-        tenant_id:        userData!.tenant_id,
-        patient_id:       selectedPatient?.id ?? null,
-        created_by:       user!.id,
-        work_type:        form.work_type,
-        work_description: form.work_description,
-        lab_name:         form.lab_name || null,
-        priority:         form.priority,
-        estimated_days:   form.estimated_days ? parseInt(form.estimated_days) : null,
+        tenant_id:          userData!.tenant_id,
+        patient_id:         selectedPatient?.id ?? null,
+        created_by:         user!.id,
+        work_type:          form.work_type,
+        work_description:   form.work_description,
+        lab_name:           form.lab_name || null,
+        priority:           form.priority,
+        estimated_days:     form.estimated_days ? parseInt(form.estimated_days) : null,
         estimated_return,
-        order_date:       form.order_date,
-        notes:            form.notes || null,
-        status:           "en_preparacion",
+        order_date:         form.order_date,
+        notes:              form.notes || null,
+        status:             "en_preparacion",
+        // pago
+        price:              priceNum,
+        deposit:            depositValue ?? 0,
+        deposit_date:       depositDate,
+        deposit_method:     depositMethod,
+        balance_paid_date:  balancePaidDate,
+        balance_method:     balanceMethod,
       })
       .select("id")
       .single()
@@ -103,6 +145,13 @@ export default function NewLabOrderPage() {
   }
 
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
+
+  // Saldo pendiente calculado para mostrar preview
+  const priceNum   = form.price   ? parseFloat(form.price)   : 0
+  const depositNum = form.deposit ? parseFloat(form.deposit) : 0
+  const pendingBalance = priceNum > 0 && form.payment_type === "seña"
+    ? priceNum - depositNum
+    : 0
 
   return (
     <div className="max-w-xl space-y-5">
@@ -277,6 +326,129 @@ export default function NewLabOrderPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* PAGO */}
+        <div className="p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <DollarSign size={15} className="text-gray-400" />
+            <label className="text-sm font-medium text-gray-700">Precio y pago</label>
+          </div>
+
+          {/* Precio total */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Precio total del trabajo</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.price}
+                onChange={e => set("price", e.target.value)}
+                placeholder="0"
+                className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Tipo de pago */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-2">¿El paciente pagó algo hoy?</label>
+            <div className="flex gap-2">
+              {[
+                { value: "ninguno", label: "No pagó" },
+                { value: "seña",    label: "Dejó seña" },
+                { value: "total",   label: "Pagó todo" },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => set("payment_type", opt.value)}
+                  className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-colors ${
+                    form.payment_type === opt.value
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Seña: monto + método */}
+          {form.payment_type === "seña" && (
+            <div className="space-y-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Monto de la seña</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.deposit}
+                    onChange={e => set("deposit", e.target.value)}
+                    placeholder="0"
+                    className="w-full pl-7 pr-3 py-2 border border-amber-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+                  />
+                </div>
+                {pendingBalance > 0 && (
+                  <p className="text-xs text-amber-700 mt-1 font-medium">
+                    Saldo pendiente al retirar: ${pendingBalance.toLocaleString("es-AR")}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Forma de pago</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PAYMENT_METHODS.map(m => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => set("deposit_method", m.value)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        form.deposit_method === m.value
+                          ? "border-amber-500 bg-amber-100 text-amber-800"
+                          : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pago total: sólo método */}
+          {form.payment_type === "total" && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-medium text-emerald-700">
+                {priceNum > 0 ? `Pagó $${priceNum.toLocaleString("es-AR")} — trabajo completamente abonado` : "Registrá también el precio total arriba"}
+              </p>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Forma de pago</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PAYMENT_METHODS.map(m => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => set("deposit_method", m.value)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        form.deposit_method === m.value
+                          ? "border-emerald-600 bg-emerald-100 text-emerald-800"
+                          : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Notas */}
