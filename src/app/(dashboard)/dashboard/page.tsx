@@ -1,24 +1,78 @@
 import { createClient } from "@/lib/supabase/server"
 import { getTenantId } from "@/lib/get-tenant"
 import { formatCurrency } from "@/lib/utils"
-import { Users, Calendar, ShoppingCart, AlertTriangle } from "lucide-react"
+import { Users, Calendar, ShoppingCart, AlertTriangle, Clock } from "lucide-react"
+import Link from "next/link"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const tenantId = await getTenantId(supabase)
   if (!tenantId) return null
 
-  const [patientsRes, appointmentsRes, salesRes, stockRes] = await Promise.all([
-    supabase.from("patients").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("active", true),
-    supabase.from("appointments").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "pendiente"),
-    supabase.from("sales").select("total").eq("tenant_id", tenantId).gte("created_at", new Date(new Date().setHours(0,0,0,0)).toISOString()),
-    supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("active", true).filter("stock", "lte", "stock_min"),
-  ])
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
 
-  const totalPatients = patientsRes.count ?? 0
-  const pendingAppointments = appointmentsRes.count ?? 0
-  const todaySales = salesRes.data?.reduce((sum, s) => sum + s.total, 0) ?? 0
-  const lowStockCount = stockRes.count ?? 0
+  const in7Days = new Date()
+  in7Days.setDate(in7Days.getDate() + 7)
+
+  const [patientsRes, appointmentsCountRes, salesRes, stockRes, upcomingRes, recentSalesRes] =
+    await Promise.all([
+      // Total pacientes activos
+      supabase
+        .from("patients")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("active", true),
+
+      // Turnos pendientes totales
+      supabase
+        .from("appointments")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("status", "pendiente"),
+
+      // Ventas de hoy (monto)
+      supabase
+        .from("sales")
+        .select("total")
+        .eq("tenant_id", tenantId)
+        .gte("created_at", todayStart.toISOString()),
+
+      // Stock bajo
+      supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("active", true)
+        .filter("stock", "lte", "stock_min"),
+
+      // Próximos turnos (hoy + 7 días)
+      supabase
+        .from("appointments")
+        .select("id, scheduled_at, type, status, patients(first_name, last_name)")
+        .eq("tenant_id", tenantId)
+        .neq("status", "cancelado")
+        .gte("scheduled_at", new Date().toISOString())
+        .lte("scheduled_at", in7Days.toISOString())
+        .order("scheduled_at", { ascending: true })
+        .limit(5),
+
+      // Últimas ventas de hoy
+      supabase
+        .from("sales")
+        .select("id, total, payment_method, created_at, patients(first_name, last_name)")
+        .eq("tenant_id", tenantId)
+        .gte("created_at", todayStart.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(5),
+    ])
+
+  const totalPatients      = patientsRes.count ?? 0
+  const pendingAppointments = appointmentsCountRes.count ?? 0
+  const todaySales         = salesRes.data?.reduce((sum, s) => sum + (s.total ?? 0), 0) ?? 0
+  const lowStockCount      = stockRes.count ?? 0
+  const upcomingAppts      = upcomingRes.data ?? []
+  const recentSales        = recentSalesRes.data ?? []
 
   return (
     <div className="space-y-6">
@@ -28,7 +82,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <StatCard
           icon={<Users size={18} className="text-blue-600" />}
           iconBg="bg-blue-50"
@@ -56,16 +110,96 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* Recent activity placeholder */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Próximos turnos + Últimas ventas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        {/* Próximos turnos */}
         <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Próximos turnos</h2>
-          <p className="text-sm text-gray-400">No hay turnos programados para hoy.</p>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-700">Próximos turnos</h2>
+            <Link href="/agenda" className="text-xs text-emerald-700 hover:underline">Ver agenda</Link>
+          </div>
+
+          {upcomingAppts.length === 0 ? (
+            <p className="text-sm text-gray-400">No hay turnos programados próximamente.</p>
+          ) : (
+            <div className="space-y-2">
+              {upcomingAppts.map((appt: any) => {
+                const dt = new Date(appt.scheduled_at)
+                const isToday = dt.toDateString() === new Date().toDateString()
+                const patient = appt.patients as any
+                return (
+                  <Link
+                    key={appt.id}
+                    href={`/agenda/${appt.id}`}
+                    className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+                      <Clock size={14} className="text-violet-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {patient ? `${patient.first_name} ${patient.last_name}` : "Sin paciente"}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {appt.type ?? "Consulta"} · {isToday ? "Hoy" : dt.toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}{" "}
+                        {dt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      appt.status === "pendiente"   ? "bg-yellow-100 text-yellow-700" :
+                      appt.status === "confirmado"  ? "bg-green-100 text-green-700"  :
+                      appt.status === "completado"  ? "bg-gray-100 text-gray-500"    :
+                                                      "bg-gray-100 text-gray-500"
+                    }`}>
+                      {appt.status}
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </div>
+
+        {/* Últimas ventas */}
         <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Últimas ventas</h2>
-          <p className="text-sm text-gray-400">No hay ventas registradas hoy.</p>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-700">Últimas ventas de hoy</h2>
+            <Link href="/sales" className="text-xs text-emerald-700 hover:underline">Ver ventas</Link>
+          </div>
+
+          {recentSales.length === 0 ? (
+            <p className="text-sm text-gray-400">No hay ventas registradas hoy.</p>
+          ) : (
+            <div className="space-y-2">
+              {recentSales.map((sale: any) => {
+                const patient = sale.patients as any
+                const hora = new Date(sale.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+                return (
+                  <Link
+                    key={sale.id}
+                    href={`/invoicing/${sale.id}`}
+                    className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                      <ShoppingCart size={14} className="text-emerald-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {patient ? `${patient.first_name} ${patient.last_name}` : "Sin paciente"}
+                      </p>
+                      <p className="text-xs text-gray-400">{hora} · {sale.payment_method ?? "—"}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-emerald-700">
+                      {formatCurrency(sale.total ?? 0)}
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </div>
+
       </div>
     </div>
   )
@@ -86,7 +220,7 @@ function StatCard({
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-start gap-3">
-      <div className={`${iconBg} p-2 rounded-lg`}>{icon}</div>
+      <div className={`${iconBg} p-2 rounded-lg flex-shrink-0`}>{icon}</div>
       <div>
         <p className="text-xs text-gray-500">{label}</p>
         <p className={`text-xl font-semibold mt-0.5 ${alert ? "text-amber-600" : "text-gray-900"}`}>
