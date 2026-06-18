@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils"
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/patients", icon: Users, label: "Pacientes" },
-  { href: "/agenda", icon: Calendar, label: "Agenda", badge: 5 },
+  { href: "/agenda", icon: Calendar, label: "Agenda" },
   { href: "/sales", icon: ShoppingCart, label: "Ventas" },
 ]
 
 const navBusiness = [
-  { href: "/stock",       icon: Box,          label: "Stock", badge: 3 },
+  { href: "/stock",       icon: Box,          label: "Stock" },
   { href: "/lab-orders",  icon: FlaskConical, label: "Laboratorio" },
   { href: "/obras-sociales", icon: Heart,     label: "Obras Sociales" },
   { href: "/suppliers",   icon: Truck,        label: "Proveedores" },
