@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, Users, Calendar, ShoppingCart,
   Box, Truck, BarChart2, FileText, Settings,
-  ChevronRight, PanelLeftClose, PanelLeftOpen, Code2, Heart,
+  ChevronRight, PanelLeftClose, PanelLeftOpen, Code2, Heart, FlaskConical,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -18,10 +18,11 @@ const navItems = [
 ]
 
 const navBusiness = [
-  { href: "/stock", icon: Box, label: "Stock", badge: 3 },
-  { href: "/obras-sociales", icon: Heart, label: "Obras Sociales" },
-  { href: "/suppliers", icon: Truck, label: "Proveedores" },
-  { href: "/reports", icon: BarChart2, label: "Reportes" },
+  { href: "/stock",       icon: Box,          label: "Stock", badge: 3 },
+  { href: "/lab-orders",  icon: FlaskConical, label: "Laboratorio" },
+  { href: "/obras-sociales", icon: Heart,     label: "Obras Sociales" },
+  { href: "/suppliers",   icon: Truck,        label: "Proveedores" },
+  { href: "/reports",     icon: BarChart2,    label: "Reportes" },
 ]
 
 const navSystem = [

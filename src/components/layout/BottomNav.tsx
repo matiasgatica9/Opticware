@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, Users, Calendar, ShoppingCart,
   MoreHorizontal, X, Box, Heart, Truck, BarChart2,
-  FileText, Settings,
+  FileText, Settings, FlaskConical,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -18,12 +18,13 @@ const mainNav = [
 ]
 
 const moreNav = [
-  { href: "/stock",         icon: Box,      label: "Stock" },
-  { href: "/obras-sociales",icon: Heart,    label: "Obras Sociales" },
-  { href: "/suppliers",     icon: Truck,    label: "Proveedores" },
-  { href: "/reports",       icon: BarChart2,label: "Reportes" },
-  { href: "/invoicing",     icon: FileText, label: "Facturación" },
-  { href: "/settings",      icon: Settings, label: "Configuración" },
+  { href: "/stock",          icon: Box,          label: "Stock" },
+  { href: "/lab-orders",     icon: FlaskConical, label: "Laboratorio" },
+  { href: "/obras-sociales", icon: Heart,        label: "Obras Sociales" },
+  { href: "/suppliers",      icon: Truck,        label: "Proveedores" },
+  { href: "/reports",        icon: BarChart2,    label: "Reportes" },
+  { href: "/invoicing",      icon: FileText,     label: "Facturación" },
+  { href: "/settings",       icon: Settings,     label: "Configuración" },
 ]
 
 interface BottomNavProps {
