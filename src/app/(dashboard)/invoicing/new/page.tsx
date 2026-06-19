@@ -21,7 +21,6 @@ const METHOD_OPTIONS = [
   { value: "mercadopago",   label: "MercadoPago" },
   { value: "credito",       label: "Tarjeta crédito" },
   { value: "debito",        label: "Tarjeta débito" },
-  { value: "obra_social",   label: "Obra social" },
 ]
 
 export default function NewInvoicePage() {
@@ -58,6 +57,7 @@ export default function NewInvoicePage() {
   // Obras Sociales
   const [obrasSociales, setObrasSociales]   = useState<ObraSocial[]>([])
   const [selectedOS, setSelectedOS]         = useState<ObraSocial | null>(null)
+  const [osDiscountPercent, setOsDiscountPercent] = useState<number>(0)
 
   // Factura C → IVA deshabilitado por ley
   const ivaLocked = tipo === "C"
@@ -128,7 +128,9 @@ export default function NewInvoicePage() {
     // Auto-seleccionar obra social del paciente
     if (p.obra_social_id) {
       const os = obrasSociales.find(o => o.id === p.obra_social_id) ?? null
-      if (os) setSelectedOS(os)
+      if (os) { setSelectedOS(os); setOsDiscountPercent(os.discount_percent) }
+    } else {
+      setSelectedOS(null); setOsDiscountPercent(0)
     }
   }
 
@@ -152,8 +154,8 @@ export default function NewInvoicePage() {
 
   // Cálculos
   const subtotal        = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
-  const discountAmount  = selectedOS && selectedOS.discount_percent > 0
-    ? Math.round(subtotal * (selectedOS.discount_percent / 100) * 100) / 100
+  const discountAmount  = osDiscountPercent > 0
+    ? Math.round(subtotal * (osDiscountPercent / 100) * 100) / 100
     : 0
   const subtotalAfterDiscount = subtotal - discountAmount
   const ivaAmount       = ivaActive ? Math.round(subtotalAfterDiscount * IVA_RATE * 100) / 100 : 0
@@ -414,6 +416,53 @@ export default function NewInvoicePage() {
             )}
           </div>
 
+          {/* Obra Social */}
+          {obrasSociales.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700">Obra social <span className="font-normal text-gray-400">(opcional)</span></h2>
+              <select
+                value={selectedOS?.id ?? ""}
+                onChange={e => {
+                  const found = obrasSociales.find(o => o.id === e.target.value) ?? null
+                  setSelectedOS(found)
+                  setOsDiscountPercent(found?.discount_percent ?? 0)
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              >
+                <option value="">Sin obra social</option>
+                {obrasSociales.map(os => (
+                  <option key={os.id} value={os.id}>{os.name}</option>
+                ))}
+              </select>
+              {selectedOS && (
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 space-y-1">
+                    <label className="text-xs font-medium text-gray-600">Descuento (%)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={osDiscountPercent}
+                        onChange={e => setOsDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                        className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 text-center"
+                      />
+                      <span className="text-xs text-gray-400">
+                        (cargado desde {selectedOS.name})
+                      </span>
+                    </div>
+                  </div>
+                  {selectedOS.copago > 0 && (
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">Copago</p>
+                      <p className="text-sm font-semibold text-amber-600">${selectedOS.copago.toLocaleString("es-AR")}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Cliente */}
           <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700">Datos del cliente</h2>
@@ -564,38 +613,6 @@ export default function NewInvoicePage() {
           <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-4">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Resumen</h2>
 
-            {/* Obra social */}
-            {obrasSociales.length > 0 && (
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Obra social</label>
-                <select
-                  value={selectedOS?.id ?? ""}
-                  onChange={e => {
-                    const found = obrasSociales.find(o => o.id === e.target.value) ?? null
-                    setSelectedOS(found)
-                  }}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                >
-                  <option value="">Sin obra social</option>
-                  {obrasSociales.map(os => (
-                    <option key={os.id} value={os.id}>
-                      {os.name}{os.discount_percent > 0 ? ` (${os.discount_percent}% desc.)` : ""}
-                    </option>
-                  ))}
-                </select>
-                {selectedOS && selectedOS.discount_percent > 0 && (
-                  <p className="text-xs text-emerald-700 mt-1 font-medium">
-                    Se aplicará {selectedOS.discount_percent}% de descuento
-                  </p>
-                )}
-                {selectedOS && selectedOS.copago > 0 && (
-                  <p className="text-xs text-amber-600 mt-0.5">
-                    Copago del paciente: ${selectedOS.copago.toLocaleString("es-AR")}
-                  </p>
-                )}
-              </div>
-            )}
-
             {/* Forma de pago */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Forma de pago</label>
@@ -622,7 +639,7 @@ export default function NewInvoicePage() {
               </div>
               {discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-emerald-700 font-medium">
-                  <span>Desc. obra social ({selectedOS?.discount_percent}%)</span>
+                  <span>Desc. obra social ({osDiscountPercent}%)</span>
                   <span>− {formatCurrency(discountAmount)}</span>
                 </div>
               )}
