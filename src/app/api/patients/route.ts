@@ -6,10 +6,10 @@ import { getTenantId } from "@/lib/get-tenant"
 // ── Esquema de validación ───────────────────────────────────────────────
 const patientSchema = z.object({
   first_name: z.string().min(1, "Nombre requerido").max(100).trim(),
-  last_name:  z.string().min(1, "Apellido requerido").max(100).trim(),
+  last_name:  z.string().max(100).trim().optional().nullable(),
   dni:        z.string().max(20).trim().optional().nullable(),
   phone:      z.string().max(30).trim().optional().nullable(),
-  email:      z.string().email("Email inválido").max(200).trim().optional().nullable(),
+  email:      z.string().max(200).trim().optional().nullable(),
   birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida").optional().nullable(),
   address:    z.string().max(300).trim().optional().nullable(),
   notes:      z.string().max(2000).trim().optional().nullable(),
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       .insert({
         tenant_id:  tenantId,
         first_name: data.first_name,
-        last_name:  data.last_name,
+        last_name:  data.last_name  ?? "",
         dni:        data.dni        ?? null,
         phone:      data.phone      ?? null,
         email:      data.email      ?? null,
