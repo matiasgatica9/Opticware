@@ -9,8 +9,8 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 const schema = z.object({
-  first_name:  z.string().min(1, "Requerido"),
-  last_name:   z.string().min(1, "Requerido"),
+  first_name:  z.string().min(1, "El nombre es requerido"),
+  last_name:   z.string().optional(),
   dni:         z.string().optional(),
   phone:       z.string().optional(),
   email:       z.string().email("Email inválido").optional().or(z.literal("")),
@@ -75,18 +75,18 @@ export default function NewPatientPage() {
           <h2 className="text-sm font-semibold text-gray-700">Datos personales</h2>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Nombre *" error={errors.first_name?.message}>
+            <Field label="Nombre *" error={errors.first_name?.message} hint="Requerido">
               <input
                 {...register("first_name")}
                 placeholder="Juan"
                 className={inputClass(!!errors.first_name)}
               />
             </Field>
-            <Field label="Apellido *" error={errors.last_name?.message}>
+            <Field label="Apellido">
               <input
                 {...register("last_name")}
                 placeholder="García"
-                className={inputClass(!!errors.last_name)}
+                className={inputClass(false)}
               />
             </Field>
           </div>
@@ -180,10 +180,12 @@ export default function NewPatientPage() {
 function Field({
   label,
   error,
+  hint,
   children,
 }: {
   label: string
   error?: string
+  hint?: string
   children: React.ReactNode
 }) {
   return (
