@@ -13,7 +13,7 @@ const schema = z.object({
   last_name:   z.string().optional(),
   dni:         z.string().optional(),
   phone:       z.string().optional(),
-  email:       z.string().optional().refine(v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), { message: "Email inválido" }),
+  email:       z.string().optional(),
   birth_date:  z.string().optional(),
   address:     z.string().optional(),
   notes:       z.string().optional(),
@@ -121,12 +121,12 @@ export default function NewPatientPage() {
                 className={inputClass(false)}
               />
             </Field>
-            <Field label="Email" error={errors.email?.message}>
+            <Field label="Email">
               <input
                 {...register("email")}
-                type="email"
+                type="text"
                 placeholder="juan@mail.com"
-                className={inputClass(!!errors.email)}
+                className={inputClass(false)}
               />
             </Field>
           </div>
