@@ -62,8 +62,8 @@ export default function SaleDetailPage() {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
-  const [tenantId, setTenantId] = useState<string | null>(null)
   const [businessName, setBusinessName] = useState("")
+  const [invoice, setInvoice] = useState<any>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -71,10 +71,7 @@ export default function SaleDetailPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: ud } = await supabase.from("users").select("tenant_id, tenants(business_name)").eq("id", user.id).single()
-        if (ud) {
-          setTenantId(ud.tenant_id)
-          setBusinessName((ud.tenants as any)?.business_name ?? "")
-        }
+        if (ud) setBusinessName((ud.tenants as any)?.business_name ?? "")
       }
       const [saleRes, itemsRes] = await Promise.all([
         supabase.from("sales").select("*, patients(id, first_name, last_name, phone, dni)").eq("id", id).single(),
@@ -82,6 +79,15 @@ export default function SaleDetailPage() {
       ])
       setSale(saleRes.data)
       setItems(itemsRes.data ?? [])
+      // Cargar factura si existe
+      if (saleRes.data?.invoice_id) {
+        const { data: inv } = await supabase
+          .from("invoices")
+          .select("id, invoice_number, total, invoice_type")
+          .eq("id", saleRes.data.invoice_id)
+          .single()
+        setInvoice(inv)
+      }
       setLoading(false)
     }
     load()
@@ -286,20 +292,30 @@ export default function SaleDetailPage() {
             </div>
           )}
 
-          {/* WhatsApp — avisar que está listo */}
-          {sale.status === "listo" && sale.patients?.phone && tenantId && (
-            <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Notificar</h2>
-              <WhatsAppButton
-                to={sale.patients.phone}
-                message={`Hola ${sale.patients.first_name}! Tu pedido está listo para retirar en ${businessName || "la óptica"}. ¡Te esperamos!`}
-                tenantId={tenantId}
-                label="Avisar que está listo"
-                variant="solid"
-              />
-              <p className="text-[10px] text-gray-400 leading-relaxed">
-                Enviará un mensaje de WhatsApp al {sale.patients.phone}
-              </p>
+          {/* WhatsApp — notificaciones al paciente */}
+          {sale.patients?.phone && (
+            <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
+              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Notificar</h2>
+
+              {sale.status === "listo" && (
+                <WhatsAppButton
+                  to={sale.patients.phone}
+                  message={`Hola ${sale.patients.first_name}! Tu pedido está listo para retirar en ${businessName || "la óptica"}. ¡Te esperamos!`}
+                  label="Avisar que está listo"
+                  variant="solid"
+                />
+              )}
+
+              {invoice && (
+                <WhatsAppButton
+                  to={sale.patients.phone}
+                  message={`Hola ${sale.patients.first_name}! Te enviamos el resumen de tu factura N° ${invoice.invoice_number} de ${businessName || "la óptica"}.\n\nTotal: $${Number(invoice.total).toLocaleString("es-AR")}\n\nGracias por tu compra! 🙏`}
+                  label="Enviar resumen de factura"
+                  variant="outline"
+                />
+              )}
+
+              <p className="text-[10px] text-gray-400">WhatsApp al {sale.patients.phone}</p>
             </div>
           )}
         </div>

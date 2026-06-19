@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getTenantId } from "@/lib/get-tenant"
 import Link from "next/link"
-import { ArrowLeft, Pencil, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Pencil } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import InvoiceActions from "./InvoiceActions"
 
@@ -174,27 +174,6 @@ export default async function InvoiceDetailPage({
             )}
           </div>
         </div>
-
-        {/* Aviso exento */}
-        {!invoice.includes_iva && (
-          <div className="mx-6 mt-4 flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-            <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
-            <p className="text-xs text-amber-700">Comprobante exento · sin discriminación de IVA</p>
-          </div>
-        )}
-
-        {/* Obra social */}
-        {(invoice.obras_sociales as any) && (
-          <div className="mx-6 mt-4 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-            <span className="text-xs font-semibold text-emerald-700">Obra Social:</span>
-            <span className="text-xs text-emerald-800">{(invoice.obras_sociales as any).name}</span>
-            {(invoice.obras_sociales as any).discount_percent > 0 && (
-              <span className="text-xs text-emerald-600 ml-auto">
-                {(invoice.obras_sociales as any).discount_percent}% descuento
-              </span>
-            )}
-          </div>
-        )}
 
         {/* Detalle de ítems */}
         {invoiceItems.length > 0 && (
