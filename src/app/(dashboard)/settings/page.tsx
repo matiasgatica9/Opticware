@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { getTenantIdClient } from "@/lib/get-tenant-client"
-import { Upload, Check, AlertCircle, Eye, EyeOff } from "lucide-react"
+import { Upload, Check, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const PRESET_COLORS = [
@@ -75,13 +75,6 @@ export default function SettingsPage() {
   const [facturaSaved, setFacturaSaved] = useState(false)
   const [facturaLoading, setFacturaLoading] = useState(false)
 
-  // WhatsApp
-  const [wpPhoneId, setWpPhoneId]   = useState("")
-  const [wpToken, setWpToken]       = useState("")
-  const [showToken, setShowToken]   = useState(false)
-  const [wpSaved, setWpSaved]       = useState(false)
-  const [wpLoading, setWpLoading]   = useState(false)
-
   // Error global
   const [error, setError] = useState<string | null>(null)
 
@@ -97,8 +90,6 @@ export default function SettingsPage() {
       setPrimaryColor(tenant.primary_color ?? "#0F6E56")
       setLogoPreview(tenant.logo_url ?? null)
       setPuntoVenta(tenant.afip_punto_venta?.toString() ?? "")
-      setWpPhoneId(tenant.whatsapp_phone_id ?? "")
-      setWpToken(tenant.whatsapp_token ?? "")
     }
     load()
   }, [])
@@ -149,10 +140,6 @@ export default function SettingsPage() {
 
   async function saveFactura() {
     await patchTenant({ punto_venta: puntoVenta }, setFacturaLoading, setFacturaSaved)
-  }
-
-  async function saveWhatsApp() {
-    await patchTenant({ whatsapp_phone_id: wpPhoneId || null, whatsapp_token: wpToken || null }, setWpLoading, setWpSaved)
   }
 
   return (
@@ -288,47 +275,23 @@ export default function SettingsPage() {
       </Section>
 
       {/* ── WhatsApp ── */}
-      <Section title="WhatsApp Business" description="Conectá tu número de WhatsApp para enviar mensajes a pacientes">
-        <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 text-xs text-blue-700">
-          <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+      <Section title="WhatsApp" description="Cómo funciona el envío de mensajes a pacientes">
+        <div className="flex items-start gap-3 bg-green-50 border border-green-100 rounded-lg px-4 py-3 text-sm text-green-800">
+          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-lg">💬</span>
+          </div>
           <div>
-            <p className="font-medium">Meta Cloud API</p>
-            <p className="mt-0.5 text-blue-600">Necesitás una cuenta de Meta Business con WhatsApp Business API habilitada. Obtené el Phone Number ID y el Access Token desde el panel de Meta Developers.</p>
+            <p className="font-medium">Funciona sin configuración</p>
+            <p className="mt-0.5 text-green-700 text-xs leading-relaxed">
+              Los botones de WhatsApp en turnos, ventas y laboratorio abren directamente WhatsApp en tu dispositivo con el mensaje pre-escrito listo para enviar. No necesitás ninguna API ni cuenta adicional.
+            </p>
           </div>
         </div>
-
-        <Field label="Phone Number ID" hint="ID del número de teléfono en Meta Developers">
-          <input
-            value={wpPhoneId}
-            onChange={e => { setWpPhoneId(e.target.value); setWpSaved(false) }}
-            placeholder="123456789012345"
-            autoComplete="off"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
-          />
-        </Field>
-
-        <Field label="Access Token">
-          <div className="relative">
-            <input
-              type={showToken ? "text" : "password"}
-              value={wpToken}
-              onChange={e => { setWpToken(e.target.value); setWpSaved(false) }}
-              placeholder="EAAxxxxxxxxxxxxxxx..."
-              autoComplete="new-password"
-              className="w-full px-3 py-2 pr-10 border border-gray-200 rounded-lg text-sm font-mono text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
-            />
-            <button
-              type="button"
-              onClick={() => setShowToken(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </div>
-        </Field>
-
-        <div className="flex justify-end pt-1">
-          <SaveButton loading={wpLoading} saved={wpSaved} onClick={saveWhatsApp} />
+        <div className="bg-gray-50 rounded-lg px-4 py-3 text-xs text-gray-500 space-y-1">
+          <p className="font-medium text-gray-700">¿Cómo funciona?</p>
+          <p>1. Hacés clic en "Enviar WhatsApp" desde un turno, venta o trabajo de laboratorio.</p>
+          <p>2. Se abre WhatsApp (web o app) con el mensaje ya escrito.</p>
+          <p>3. Solo confirmás el envío desde tu propio WhatsApp.</p>
         </div>
       </Section>
 

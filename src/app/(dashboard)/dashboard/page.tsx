@@ -9,10 +9,11 @@ export default async function DashboardPage() {
   const tenantId = await getTenantId(supabase)
   if (!tenantId) return null
 
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
+  // Inicio del día en Argentina (UTC-3)
+  const now = new Date()
+  const todayStart = new Date(now.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }) + "T00:00:00-03:00")
 
-  const in7Days = new Date()
+  const in7Days = new Date(todayStart)
   in7Days.setDate(in7Days.getDate() + 7)
 
   const [patientsRes, appointmentsCountRes, salesRes, stockRes, upcomingRes, recentSalesRes] =
@@ -126,7 +127,10 @@ export default async function DashboardPage() {
             <div className="space-y-2">
               {upcomingAppts.map((appt: any) => {
                 const dt = new Date(appt.scheduled_at)
-                const isToday = dt.toDateString() === new Date().toDateString()
+                const TZ = "America/Argentina/Buenos_Aires"
+                const todayAR = new Date().toLocaleDateString("es-AR", { timeZone: TZ })
+                const apptDateAR = dt.toLocaleDateString("es-AR", { timeZone: TZ })
+                const isToday = todayAR === apptDateAR
                 const patient = appt.patients as any
                 return (
                   <Link
@@ -142,8 +146,8 @@ export default async function DashboardPage() {
                         {patient ? `${patient.first_name} ${patient.last_name}` : "Sin paciente"}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {appt.type ?? "Consulta"} · {isToday ? "Hoy" : dt.toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}{" "}
-                        {dt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                        {appt.type ?? "Consulta"} · {isToday ? "Hoy" : dt.toLocaleDateString("es-AR", { day: "2-digit", month: "short", timeZone: TZ })}{" "}
+                        {dt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: TZ })}
                       </p>
                     </div>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
@@ -174,7 +178,7 @@ export default async function DashboardPage() {
             <div className="space-y-2">
               {recentSales.map((sale: any) => {
                 const patient = sale.patients as any
-                const hora = new Date(sale.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+                const hora = new Date(sale.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" })
                 return (
                   <Link
                     key={sale.id}

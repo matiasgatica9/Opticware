@@ -1,10 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MessageCircle, X, Send, Check, AlertCircle } from "lucide-react"
+import { MessageCircle, X, ExternalLink } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { getTenantIdClient } from "@/lib/get-tenant-client"
 import { cn } from "@/lib/utils"
+
+// Normaliza número argentino a formato wa.me (549XXXXXXXXXX)
+function normalizePhone(raw: string): string {
+  let n = raw.replace(/[\s\-().+]/g, "")
+  if (n.startsWith("549")) return n
+  if (n.startsWith("54")) return "549" + n.slice(2)
+  if (n.startsWith("0")) n = n.slice(1)
+  return "549" + n
+}
 
 interface Template {
   label: string
@@ -52,21 +61,15 @@ export default function WhatsAppButton({
 }: Props) {
   const [open, setOpen] = useState(false)
   const [businessName, setBusinessName] = useState("la óptica")
-  const [tenantId, setTenantId] = useState<string | null>(null)
 
   const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplateIndex ?? 0)
   const [phoneInput, setPhoneInput] = useState(phone ?? "")
   const [pickupDate, setPickupDate] = useState("")
   const [message, setMessage] = useState("")
 
-  const [sending, setSending] = useState(false)
-  const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
   useEffect(() => {
     getTenantIdClient().then(async (tid) => {
       if (!tid) return
-      setTenantId(tid)
       const supabase = createClient()
       const { data } = await supabase
         .from("tenants")
@@ -85,28 +88,12 @@ export default function WhatsAppButton({
     setMessage(tpl.buildMessage({ patientName, businessName, extra }))
   }, [selectedTemplate, patientName, businessName, pickupDate, extraData])
 
-  async function handleSend() {
-    if (!phoneInput.trim() || !message.trim() || !tenantId) return
-    setSending(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/whatsapp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: phoneInput.trim(), message, tenantId }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error ?? "Error al enviar")
-      } else {
-        setSent(true)
-        setTimeout(() => { setSent(false); setOpen(false) }, 2000)
-      }
-    } catch {
-      setError("Error de conexión")
-    } finally {
-      setSending(false)
-    }
+  function handleOpen() {
+    if (!phoneInput.trim() || !message.trim()) return
+    const phone = normalizePhone(phoneInput.trim())
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+    window.open(url, "_blank", "noopener,noreferrer")
+    setOpen(false)
   }
 
   if (!phone && size === "sm") return null
@@ -115,7 +102,7 @@ export default function WhatsAppButton({
     <>
       {/* Trigger button */}
       <button
-        onClick={() => { setOpen(true); setError(null); setSent(false) }}
+        onClick={() => setOpen(true)}
         title="Enviar WhatsApp"
         className={cn(
           "flex items-center gap-1.5 rounded-lg font-medium transition-colors",
@@ -209,12 +196,6 @@ export default function WhatsAppButton({
                 />
               </div>
 
-              {error && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-xs text-red-700">
-                  <AlertCircle size={13} />
-                  {error}
-                </div>
-              )}
             </div>
 
             {/* Footer */}
@@ -226,16 +207,12 @@ export default function WhatsAppButton({
                 Cancelar
               </button>
               <button
-                onClick={handleSend}
-                disabled={sending || sent || !phoneInput.trim()}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50",
-                  sent
-                    ? "bg-green-50 text-green-700 border border-green-200"
-                    : "bg-green-600 text-white hover:bg-green-700"
-                )}
+                onClick={handleOpen}
+                disabled={!phoneInput.trim()}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
               >
-                {sent ? <><Check size={14} /> Enviado</> : sending ? "Enviando..." : <><Send size={14} /> Enviar</>}
+                <ExternalLink size={14} />
+                Abrir en WhatsApp
               </button>
             </div>
           </div>
