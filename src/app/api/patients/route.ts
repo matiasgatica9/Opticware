@@ -41,18 +41,21 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data
 
+    // Convertir strings vacíos a null/valor correcto
+    const orNull = (v?: string | null) => (v && v.trim() !== "" ? v.trim() : null)
+
     const { data: patient, error } = await supabase
       .from("patients")
       .insert({
         tenant_id:  tenantId,
-        first_name: data.first_name,
-        last_name:  data.last_name  ?? "",
-        dni:        data.dni        ?? null,
-        phone:      data.phone      ?? null,
-        email:      data.email      ?? null,
-        birth_date: data.birth_date ?? null,
-        address:    data.address    ?? null,
-        notes:      data.notes      ?? null,
+        first_name: data.first_name.trim(),
+        last_name:  orNull(data.last_name) ?? "",
+        dni:        orNull(data.dni),
+        phone:      orNull(data.phone),
+        email:      orNull(data.email),
+        birth_date: orNull(data.birth_date),  // si es "" manda null, no falla la columna date
+        address:    orNull(data.address),
+        notes:      orNull(data.notes),
         active:     true,
       })
       .select("id")
