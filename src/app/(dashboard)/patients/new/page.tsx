@@ -13,7 +13,7 @@ const schema = z.object({
   last_name:   z.string().optional(),
   dni:         z.string().optional(),
   phone:       z.string().optional(),
-  email:       z.string().email("Email inválido").optional().or(z.literal("")),
+  email:       z.string().optional().refine(v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), { message: "Email inválido" }),
   birth_date:  z.string().optional(),
   address:     z.string().optional(),
   notes:       z.string().optional(),
