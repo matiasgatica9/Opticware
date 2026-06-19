@@ -10,7 +10,7 @@ const patientSchema = z.object({
   dni:        z.string().max(20).trim().optional().nullable(),
   phone:      z.string().max(30).trim().optional().nullable(),
   email:      z.string().max(200).trim().optional().nullable(),
-  birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida").optional().nullable(),
+  birth_date: z.string().optional().nullable(),
   address:    z.string().max(300).trim().optional().nullable(),
   notes:      z.string().max(2000).trim().optional().nullable(),
 })
