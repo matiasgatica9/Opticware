@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { getTenantIdClient } from "@/lib/get-tenant-client"
-import { Upload, Check, AlertCircle } from "lucide-react"
+import { Upload, Check, AlertCircle, Download, FolderOpen, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const PRESET_COLORS = [
@@ -75,6 +75,13 @@ export default function SettingsPage() {
   const [facturaSaved, setFacturaSaved] = useState(false)
   const [facturaLoading, setFacturaLoading] = useState(false)
 
+  // Backup
+  const [exportLoading, setExportLoading] = useState(false)
+  const [importLoading, setImportLoading] = useState(false)
+  const [importResult, setImportResult] = useState<string | null>(null)
+  const [importError, setImportError]   = useState<string | null>(null)
+  const importRef = useRef<HTMLInputElement>(null)
+
   // Error global
   const [error, setError] = useState<string | null>(null)
 
@@ -140,6 +147,53 @@ export default function SettingsPage() {
 
   async function saveFactura() {
     await patchTenant({ punto_venta: puntoVenta }, setFacturaLoading, setFacturaSaved)
+  }
+
+  async function handleExport() {
+    setExportLoading(true)
+    try {
+      const res = await fetch("/api/backup/export")
+      if (!res.ok) { setError("Error al exportar los datos"); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `opticware-backup-${new Date().toISOString().split("T")[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError("Error al exportar los datos")
+    } finally {
+      setExportLoading(false)
+    }
+  }
+
+  async function handleImport(file: File) {
+    setImportLoading(true)
+    setImportResult(null)
+    setImportError(null)
+    try {
+      const text = await file.text()
+      const res = await fetch("/api/backup/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: text,
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setImportError(json.error ?? "Error al importar")
+      } else {
+        const totals = Object.entries(json.imported as Record<string, number>)
+          .map(([k, v]) => `${v} ${k}`)
+          .join(", ")
+        setImportResult(`Importado correctamente: ${totals}`)
+      }
+    } catch {
+      setImportError("Error al leer el archivo")
+    } finally {
+      setImportLoading(false)
+      if (importRef.current) importRef.current.value = ""
+    }
   }
 
   return (
@@ -292,6 +346,90 @@ export default function SettingsPage() {
           <p>1. Hacés clic en "Enviar WhatsApp" desde un turno, venta o trabajo de laboratorio.</p>
           <p>2. Se abre WhatsApp (web o app) con el mensaje ya escrito.</p>
           <p>3. Solo confirmás el envío desde tu propio WhatsApp.</p>
+        </div>
+      </Section>
+
+      {/* ── Datos y Respaldo ── */}
+      <Section title="Datos y Respaldo" description="Exportá o restaurá toda la información de tu óptica">
+
+        {/* Exportar */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <Download size={16} className="text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800">Descargar respaldo</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Descargá un archivo JSON con todos tus pacientes, ventas, facturas, productos y más.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleExport}
+            disabled={exportLoading}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 flex-shrink-0"
+          >
+            <Download size={14} />
+            {exportLoading ? "Exportando..." : "Descargar"}
+          </button>
+        </div>
+
+        <div className="border-t border-gray-50" />
+
+        {/* Importar */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+              <FolderOpen size={16} className="text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800">Restaurar respaldo</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Cargá un archivo de respaldo previo. Los datos existentes no se borran — solo se agregan los que faltan.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => importRef.current?.click()}
+            disabled={importLoading}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 flex-shrink-0"
+          >
+            <FolderOpen size={14} />
+            {importLoading ? "Importando..." : "Cargar archivo"}
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0]
+              if (file) handleImport(file)
+            }}
+          />
+        </div>
+
+        {/* Resultado import */}
+        {importResult && (
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-3 text-sm text-emerald-700">
+            <Check size={14} className="flex-shrink-0" />
+            {importResult}
+          </div>
+        )}
+        {importError && (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-sm text-red-700">
+            <AlertCircle size={14} className="flex-shrink-0" />
+            {importError}
+          </div>
+        )}
+
+        {/* Nota legal */}
+        <div className="flex items-start gap-2 bg-gray-50 rounded-lg px-4 py-3">
+          <ShieldCheck size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-gray-400">
+            El archivo de respaldo contiene datos personales de tus pacientes. Guardalo en un lugar seguro y no lo compartás con terceros no autorizados. Ley 25.326 de Protección de Datos Personales.
+          </p>
         </div>
       </Section>
 

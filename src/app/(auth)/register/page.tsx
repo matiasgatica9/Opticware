@@ -6,12 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/client"
 import { Mail } from "lucide-react"
+import Link from "next/link"
 
 const registerSchema = z.object({
   businessName: z.string().min(2, "Ingresá el nombre de tu óptica"),
   fullName: z.string().min(2, "Ingresá tu nombre completo"),
   email: z.string().email("Email inválido"),
   password: z.string().min(8, "Mínimo 8 caracteres"),
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Debés aceptar los términos para continuar" }) }),
 })
 
 type RegisterForm = z.infer<typeof registerSchema>
@@ -192,6 +194,31 @@ export default function RegisterPage() {
             />
             {errors.password && (
               <p className="text-xs text-red-600 mt-1">{errors.password.message}</p>
+            )}
+          </div>
+
+          {/* Checkbox T&C */}
+          <div className="space-y-1">
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register("acceptTerms")}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 cursor-pointer flex-shrink-0"
+              />
+              <span className="text-xs text-gray-600">
+                Leí y acepto los{" "}
+                <Link href="/terms" target="_blank" className="text-emerald-700 font-medium hover:underline">
+                  Términos y Condiciones
+                </Link>{" "}
+                y la{" "}
+                <Link href="/privacy" target="_blank" className="text-emerald-700 font-medium hover:underline">
+                  Política de Privacidad
+                </Link>
+                , incluyendo el tratamiento de datos personales de mis pacientes según la Ley 25.326.
+              </span>
+            </label>
+            {errors.acceptTerms && (
+              <p className="text-xs text-red-600 pl-6">{errors.acceptTerms.message}</p>
             )}
           </div>
 
