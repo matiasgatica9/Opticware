@@ -39,13 +39,12 @@ export default async function DashboardPage() {
         .eq("tenant_id", tenantId)
         .gte("created_at", todayStart.toISOString()),
 
-      // Stock bajo
+      // Stock bajo (comparamos dos columnas en JS)
       supabase
         .from("products")
-        .select("id", { count: "exact", head: true })
+        .select("id, stock, stock_min")
         .eq("tenant_id", tenantId)
-        .eq("active", true)
-        .filter("stock", "lte", "stock_min"),
+        .eq("active", true),
 
       // Próximos turnos (hoy + 7 días)
       supabase
@@ -71,7 +70,7 @@ export default async function DashboardPage() {
   const totalPatients      = patientsRes.count ?? 0
   const pendingAppointments = appointmentsCountRes.count ?? 0
   const todaySales         = salesRes.data?.reduce((sum, s) => sum + (s.total ?? 0), 0) ?? 0
-  const lowStockCount      = stockRes.count ?? 0
+  const lowStockCount      = (stockRes.data ?? []).filter(p => p.stock <= p.stock_min).length
   const upcomingAppts      = upcomingRes.data ?? []
   const recentSales        = recentSalesRes.data ?? []
 
