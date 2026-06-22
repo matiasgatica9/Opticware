@@ -131,7 +131,7 @@ export default function RegisterPage() {
             O
           </div>
           <h1 className="text-2xl font-semibold text-gray-900">OpticWare</h1>
-          <p className="text-sm text-gray-500 mt-1">Registrá tu óptica — gratis 30 días</p>
+          <p className="text-sm text-gray-500 mt-1">Probá gratis durante 7 días</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
