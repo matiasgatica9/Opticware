@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
-import { ArrowLeft, Search, DollarSign } from "lucide-react"
+import { ArrowLeft, Search, DollarSign, Plus, Check, X } from "lucide-react"
 
 const PAYMENT_METHODS = [
   { value: "efectivo",      label: "Efectivo" },
@@ -23,16 +23,12 @@ const WORK_TYPES = [
   { value: "otro",        label: "Otro" },
 ]
 
-const TREATMENTS = [
-  { value: "antirreflejo",  label: "Antirreflejo" },
-  { value: "fotocromático", label: "Fotocromático" },
-  { value: "uv",            label: "UV" },
-  { value: "blue_light",    label: "Blue light" },
-  { value: "endurecido",    label: "Endurecido" },
-]
+// Opciones por defecto — se muestran siempre; el usuario puede agregar las suyas encima
+const DEFAULT_LENS_TYPES    = ["Monofocal", "Bifocal", "Progresivo", "Ocupacional"]
+const DEFAULT_LENS_MATERIALS = ["CR-39", "Policarbonato", "Trivex", "Alto índice 1.67", "Alto índice 1.74", "Cristal mineral"]
+const DEFAULT_TREATMENTS     = ["Antirreflejo", "Fotocromático", "UV", "Blue light", "Endurecido"]
 
-const LENS_TYPES = ["Monofocal", "Bifocal", "Progresivo", "Ocupacional"]
-const LENS_MATERIALS = ["CR-39", "Policarbonato", "Trivex", "Alto índice 1.67", "Alto índice 1.74", "Cristal mineral"]
+type CatalogCategory = "lens_type" | "lens_material" | "treatment"
 
 interface Patient { id: string; first_name: string; last_name: string }
 
@@ -58,6 +54,60 @@ export default function NewLabOrderPage() {
   const setGradField = (k: string, v: string) => setGrad(p => ({ ...p, [k]: v }))
   const toggleTreatment = (v: string) =>
     setSelectedTreatments(p => p.includes(v) ? p.filter(t => t !== v) : [...p, v])
+
+  // Catálogo personalizable
+  const [customLensTypes,    setCustomLensTypes]    = useState<string[]>([])
+  const [customLensMaterials,setCustomLensMaterials]= useState<string[]>([])
+  const [customTreatments,   setCustomTreatments]   = useState<string[]>([])
+  const [addingCat, setAddingCat] = useState<CatalogCategory | null>(null)
+  const [newLabel,  setNewLabel]  = useState("")
+  const [savingCat, setSavingCat] = useState(false)
+  const newLabelRef = useRef<HTMLInputElement>(null)
+
+  // Cargar catálogo del tenant
+  useEffect(() => {
+    fetch("/api/catalog")
+      .then(r => r.json())
+      .then((items: { category: CatalogCategory; label: string }[]) => {
+        setCustomLensTypes(    items.filter(i => i.category === "lens_type").map(i => i.label))
+        setCustomLensMaterials(items.filter(i => i.category === "lens_material").map(i => i.label))
+        setCustomTreatments(   items.filter(i => i.category === "treatment").map(i => i.label))
+      })
+      .catch(() => {/* silent */})
+  }, [])
+
+  // Listas fusionadas (default + custom, sin duplicados)
+  const allLensTypes     = [...DEFAULT_LENS_TYPES,    ...customLensTypes.filter(l => !DEFAULT_LENS_TYPES.includes(l))]
+  const allLensMaterials = [...DEFAULT_LENS_MATERIALS, ...customLensMaterials.filter(l => !DEFAULT_LENS_MATERIALS.includes(l))]
+  const allTreatments    = [...DEFAULT_TREATMENTS,     ...customTreatments.filter(l => !DEFAULT_TREATMENTS.includes(l))]
+
+  async function saveNewItem() {
+    if (!addingCat || !newLabel.trim() || savingCat) return
+    setSavingCat(true)
+    try {
+      const res  = await fetch("/api/catalog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: addingCat, label: newLabel.trim() }),
+      })
+      if (res.ok) {
+        const item = await res.json()
+        if (addingCat === "lens_type")     setCustomLensTypes(p    => [...p, item.label])
+        if (addingCat === "lens_material") setCustomLensMaterials(p=> [...p, item.label])
+        if (addingCat === "treatment")     setCustomTreatments(p   => [...p, item.label])
+      }
+    } finally {
+      setSavingCat(false)
+      setAddingCat(null)
+      setNewLabel("")
+    }
+  }
+
+  function openAdding(cat: CatalogCategory) {
+    setAddingCat(cat)
+    setNewLabel("")
+    setTimeout(() => newLabelRef.current?.focus(), 50)
+  }
 
   const [form, setForm] = useState({
     work_type:        "lentes",
@@ -171,6 +221,7 @@ export default function NewLabOrderPage() {
         lens_type:    lensType || null,
         lens_material: lensMaterial || null,
         treatments:   selectedTreatments.length > 0 ? selectedTreatments : null,
+        // selectedTreatments ya contiene los labels (strings) directamente
       })
       .select("id")
       .single()
@@ -355,41 +406,107 @@ export default function NewLabOrderPage() {
 
           {/* Cristal y Material */}
           <div className="grid grid-cols-2 gap-3">
+            {/* Tipo de cristal */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Tipo de cristal</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-gray-500">Tipo de cristal</label>
+                <button
+                  type="button"
+                  onClick={() => openAdding("lens_type")}
+                  className="flex items-center gap-0.5 text-xs text-emerald-700 hover:text-emerald-800"
+                >
+                  <Plus size={11} /> Agregar
+                </button>
+              </div>
               <select
                 value={lensType}
                 onChange={e => setLensType(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
               >
                 <option value="">— Seleccionar —</option>
-                {LENS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                {allLensTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
+              {addingCat === "lens_type" && (
+                <div className="mt-1.5 flex gap-1">
+                  <input
+                    ref={newLabelRef}
+                    value={newLabel}
+                    onChange={e => setNewLabel(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveNewItem() } if (e.key === "Escape") { setAddingCat(null); setNewLabel("") } }}
+                    placeholder="Nuevo tipo..."
+                    className="flex-1 px-2 py-1 border border-emerald-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button type="button" onClick={saveNewItem} disabled={savingCat || !newLabel.trim()} className="p-1.5 bg-emerald-700 text-white rounded-lg disabled:opacity-40">
+                    <Check size={12} />
+                  </button>
+                  <button type="button" onClick={() => { setAddingCat(null); setNewLabel("") }} className="p-1.5 border border-gray-200 rounded-lg text-gray-400">
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Material */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Material</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-gray-500">Material</label>
+                <button
+                  type="button"
+                  onClick={() => openAdding("lens_material")}
+                  className="flex items-center gap-0.5 text-xs text-emerald-700 hover:text-emerald-800"
+                >
+                  <Plus size={11} /> Agregar
+                </button>
+              </div>
               <select
                 value={lensMaterial}
                 onChange={e => setLensMaterial(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
               >
                 <option value="">— Seleccionar —</option>
-                {LENS_MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
+                {allLensMaterials.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
+              {addingCat === "lens_material" && (
+                <div className="mt-1.5 flex gap-1">
+                  <input
+                    ref={newLabelRef}
+                    value={newLabel}
+                    onChange={e => setNewLabel(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveNewItem() } if (e.key === "Escape") { setAddingCat(null); setNewLabel("") } }}
+                    placeholder="Nuevo material..."
+                    className="flex-1 px-2 py-1 border border-emerald-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button type="button" onClick={saveNewItem} disabled={savingCat || !newLabel.trim()} className="p-1.5 bg-emerald-700 text-white rounded-lg disabled:opacity-40">
+                    <Check size={12} />
+                  </button>
+                  <button type="button" onClick={() => { setAddingCat(null); setNewLabel("") }} className="p-1.5 border border-gray-200 rounded-lg text-gray-400">
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Tratamientos */}
           <div>
-            <label className="block text-xs text-gray-500 mb-2">Tratamientos</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-gray-500">Tratamientos</label>
+              <button
+                type="button"
+                onClick={() => openAdding("treatment")}
+                className="flex items-center gap-0.5 text-xs text-emerald-700 hover:text-emerald-800"
+              >
+                <Plus size={11} /> Agregar
+              </button>
+            </div>
             <div className="flex flex-wrap gap-2">
-              {TREATMENTS.map(({ value, label }) => (
+              {allTreatments.map(label => (
                 <button
-                  key={value}
+                  key={label}
                   type="button"
-                  onClick={() => toggleTreatment(value)}
+                  onClick={() => toggleTreatment(label)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    selectedTreatments.includes(value)
+                    selectedTreatments.includes(label)
                       ? "bg-emerald-700 text-white border-emerald-700"
                       : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
                   }`}
@@ -398,6 +515,24 @@ export default function NewLabOrderPage() {
                 </button>
               ))}
             </div>
+            {addingCat === "treatment" && (
+              <div className="mt-2 flex gap-1">
+                <input
+                  ref={newLabelRef}
+                  value={newLabel}
+                  onChange={e => setNewLabel(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveNewItem() } if (e.key === "Escape") { setAddingCat(null); setNewLabel("") } }}
+                  placeholder="Nuevo tratamiento..."
+                  className="flex-1 px-2 py-1 border border-emerald-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <button type="button" onClick={saveNewItem} disabled={savingCat || !newLabel.trim()} className="p-1.5 bg-emerald-700 text-white rounded-lg disabled:opacity-40">
+                  <Check size={12} />
+                </button>
+                <button type="button" onClick={() => { setAddingCat(null); setNewLabel("") }} className="p-1.5 border border-gray-200 rounded-lg text-gray-400">
+                  <X size={12} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
