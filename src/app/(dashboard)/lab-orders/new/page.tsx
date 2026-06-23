@@ -23,6 +23,17 @@ const WORK_TYPES = [
   { value: "otro",        label: "Otro" },
 ]
 
+const TREATMENTS = [
+  { value: "antirreflejo",  label: "Antirreflejo" },
+  { value: "fotocromático", label: "Fotocromático" },
+  { value: "uv",            label: "UV" },
+  { value: "blue_light",    label: "Blue light" },
+  { value: "endurecido",    label: "Endurecido" },
+]
+
+const LENS_TYPES = ["Monofocal", "Bifocal", "Progresivo", "Ocupacional"]
+const LENS_MATERIALS = ["CR-39", "Policarbonato", "Trivex", "Alto índice 1.67", "Alto índice 1.74", "Cristal mineral"]
+
 interface Patient { id: string; first_name: string; last_name: string }
 
 export default function NewLabOrderPage() {
@@ -35,6 +46,18 @@ export default function NewLabOrderPage() {
   const [patientSearch, setPatientSearch] = useState("")
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [showDropdown, setShowDropdown]   = useState(false)
+
+  // Graduación
+  const [grad, setGrad] = useState({
+    od_sphere: "", od_cylinder: "", od_axis: "", od_addition: "", od_pd: "",
+    oi_sphere: "", oi_cylinder: "", oi_axis: "", oi_addition: "", oi_pd: "",
+  })
+  const [lensType, setLensType]         = useState("")
+  const [lensMaterial, setLensMaterial] = useState("")
+  const [selectedTreatments, setSelectedTreatments] = useState<string[]>([])
+  const setGradField = (k: string, v: string) => setGrad(p => ({ ...p, [k]: v }))
+  const toggleTreatment = (v: string) =>
+    setSelectedTreatments(p => p.includes(v) ? p.filter(t => t !== v) : [...p, v])
 
   const [form, setForm] = useState({
     work_type:        "lentes",
@@ -109,6 +132,9 @@ export default function NewLabOrderPage() {
     const { data: userData } = await supabase
       .from("users").select("tenant_id").eq("id", user!.id).single()
 
+    const toNum = (s: string) => { const n = parseFloat(s.replace(",",".")); return isNaN(n) ? null : n }
+    const toInt = (s: string) => { const n = parseInt(s); return isNaN(n) ? null : n }
+
     const { data: order, error: err } = await supabase
       .from("lab_orders")
       .insert({
@@ -131,6 +157,20 @@ export default function NewLabOrderPage() {
         deposit_method:     depositMethod,
         balance_paid_date:  balancePaidDate,
         balance_method:     balanceMethod,
+        // graduación
+        od_sphere:    toNum(grad.od_sphere),
+        od_cylinder:  toNum(grad.od_cylinder),
+        od_axis:      toInt(grad.od_axis),
+        od_addition:  toNum(grad.od_addition),
+        od_pd:        toNum(grad.od_pd),
+        oi_sphere:    toNum(grad.oi_sphere),
+        oi_cylinder:  toNum(grad.oi_cylinder),
+        oi_axis:      toInt(grad.oi_axis),
+        oi_addition:  toNum(grad.oi_addition),
+        oi_pd:        toNum(grad.oi_pd),
+        lens_type:    lensType || null,
+        lens_material: lensMaterial || null,
+        treatments:   selectedTreatments.length > 0 ? selectedTreatments : null,
       })
       .select("id")
       .single()
@@ -267,6 +307,97 @@ export default function NewLabOrderPage() {
               placeholder="Nombre del laboratorio"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
             />
+          </div>
+        </div>
+
+        {/* Graduación */}
+        <div className="p-5 space-y-4">
+          <h2 className="text-sm font-medium text-gray-700">Graduación <span className="text-gray-400 font-normal">(opcional)</span></h2>
+
+          {/* Tabla OD / OI */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="w-12 pb-2" />
+                  {["Esfera","Cilindro","Eje","Adición","DIP"].map(h => (
+                    <th key={h} className="pb-2 text-xs font-medium text-gray-500 text-center px-1">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {(["od","oi"] as const).map(eye => (
+                  <tr key={eye}>
+                    <td className="pr-2 py-2">
+                      <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded">{eye.toUpperCase()}</span>
+                    </td>
+                    {[
+                      { key: `${eye}_sphere`,   ph: "-2.00" },
+                      { key: `${eye}_cylinder`, ph: "-0.75" },
+                      { key: `${eye}_axis`,     ph: "165"   },
+                      { key: `${eye}_addition`, ph: "+2.00" },
+                      { key: `${eye}_pd`,       ph: "32"    },
+                    ].map(({ key, ph }) => (
+                      <td key={key} className="px-1 py-2">
+                        <input
+                          value={grad[key as keyof typeof grad]}
+                          onChange={e => setGradField(key, e.target.value)}
+                          placeholder={ph}
+                          className="w-full text-center px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Cristal y Material */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Tipo de cristal</label>
+              <select
+                value={lensType}
+                onChange={e => setLensType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+              >
+                <option value="">— Seleccionar —</option>
+                {LENS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Material</label>
+              <select
+                value={lensMaterial}
+                onChange={e => setLensMaterial(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
+              >
+                <option value="">— Seleccionar —</option>
+                {LENS_MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Tratamientos */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-2">Tratamientos</label>
+            <div className="flex flex-wrap gap-2">
+              {TREATMENTS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => toggleTreatment(value)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    selectedTreatments.includes(value)
+                      ? "bg-emerald-700 text-white border-emerald-700"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
