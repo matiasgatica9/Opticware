@@ -92,7 +92,7 @@ export default function WhatsAppButton({
     if (!phoneInput.trim() || !message.trim()) return
     const phone = normalizePhone(phoneInput.trim())
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
-    window.open(url, "_blank", "noopener,noreferrer")
+    window.open(url, "whatsapp")
     setOpen(false)
   }
 
