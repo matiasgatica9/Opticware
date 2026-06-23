@@ -232,10 +232,44 @@ export default function NewLabOrderPage() {
       return
     }
 
+    // Si hay paciente + al menos un campo de graduación → guardar también como receta
+    const hasGradData = [
+      grad.od_sphere, grad.od_cylinder, grad.od_axis,
+      grad.oi_sphere, grad.oi_cylinder, grad.oi_axis,
+    ].some(v => v.trim() !== "")
+
+    if (selectedPatient && hasGradData) {
+      await supabase.from("prescriptions").insert({
+        tenant_id:    userData!.tenant_id,
+        patient_id:   selectedPatient.id,
+        issued_date:  form.order_date,
+        od_sphere:    toNum(grad.od_sphere),
+        od_cylinder:  toNum(grad.od_cylinder),
+        od_axis:      toInt(grad.od_axis),
+        od_addition:  toNum(grad.od_addition),
+        od_pd:        toNum(grad.od_pd),
+        oi_sphere:    toNum(grad.oi_sphere),
+        oi_cylinder:  toNum(grad.oi_cylinder),
+        oi_axis:      toInt(grad.oi_axis),
+        oi_addition:  toNum(grad.oi_addition),
+        oi_pd:        toNum(grad.oi_pd),
+        lens_type:    lensType || null,
+        lens_material: lensMaterial || null,
+        treatments:   selectedTreatments.length > 0 ? selectedTreatments : null,
+        notes:        form.notes || null,
+      })
+    }
+
     router.push(`/lab-orders/${order.id}`)
   }
 
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
+
+  // Indicador: se guardará como receta si hay paciente + algún campo de grad
+  const willSavePrescription = !!selectedPatient && [
+    grad.od_sphere, grad.od_cylinder, grad.od_axis,
+    grad.oi_sphere, grad.oi_cylinder, grad.oi_axis,
+  ].some(v => v.trim() !== "")
 
   // Saldo pendiente calculado para mostrar preview
   const priceNum   = form.price   ? parseFloat(form.price)   : 0
@@ -363,7 +397,15 @@ export default function NewLabOrderPage() {
 
         {/* Graduación */}
         <div className="p-5 space-y-4">
-          <h2 className="text-sm font-medium text-gray-700">Graduación <span className="text-gray-400 font-normal">(opcional)</span></h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-gray-700">Graduación <span className="text-gray-400 font-normal">(opcional)</span></h2>
+            {willSavePrescription && (
+              <span className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-0.5">
+                <Check size={11} className="flex-shrink-0" />
+                Se guardará en historia clínica
+              </span>
+            )}
+          </div>
 
           {/* Tabla OD / OI */}
           <div className="overflow-x-auto">
