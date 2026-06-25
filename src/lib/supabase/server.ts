@@ -5,18 +5,10 @@ import type { Database } from "@/types/database"
 
 /**
  * Client for server components and API routes.
- * Uses service role key when available (bypasses RLS).
- * Falls back to anon key + cookies (respects user session).
+ * Always uses the user's session via cookies — RLS stays active.
+ * This ensures each user only sees their own tenant's data.
  */
 export async function createClient() {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return createSupabaseClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-  }
-
   const cookieStore = await cookies()
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,8 +30,7 @@ export async function createClient() {
 
 /**
  * Auth-only client — always uses cookies to verify the session.
- * Use this in API routes to check if a user is logged in,
- * regardless of whether service role is being used for DB ops.
+ * Use this in API routes to check if a user is logged in.
  */
 export async function createAuthClient() {
   const cookieStore = await cookies()
@@ -58,5 +49,21 @@ export async function createAuthClient() {
         },
       },
     }
+  )
+}
+
+/**
+ * Admin client with service role key — bypasses RLS completely.
+ * ONLY use this for background jobs (crons, email reports) that need
+ * to access all tenants. NEVER use in user-facing routes.
+ */
+export function createServiceClient() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY not set")
+  }
+  return createSupabaseClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }
