@@ -238,26 +238,63 @@ export default function NewLabOrderPage() {
       grad.oi_sphere, grad.oi_cylinder, grad.oi_axis,
     ].some(v => v.trim() !== "")
 
+    // 1. Auto-guardar receta si hay paciente + datos de graduación
     if (selectedPatient && hasGradData) {
       await supabase.from("prescriptions").insert({
-        tenant_id:    userData!.tenant_id,
-        patient_id:   selectedPatient.id,
-        issued_date:  form.order_date,
-        od_sphere:    toNum(grad.od_sphere),
-        od_cylinder:  toNum(grad.od_cylinder),
-        od_axis:      toInt(grad.od_axis),
-        od_addition:  toNum(grad.od_addition),
-        od_pd:        toNum(grad.od_pd),
-        oi_sphere:    toNum(grad.oi_sphere),
-        oi_cylinder:  toNum(grad.oi_cylinder),
-        oi_axis:      toInt(grad.oi_axis),
-        oi_addition:  toNum(grad.oi_addition),
-        oi_pd:        toNum(grad.oi_pd),
-        lens_type:    lensType || null,
+        tenant_id:     userData!.tenant_id,
+        patient_id:    selectedPatient.id,
+        issued_date:   form.order_date,
+        od_sphere:     toNum(grad.od_sphere),
+        od_cylinder:   toNum(grad.od_cylinder),
+        od_axis:       toInt(grad.od_axis),
+        od_addition:   toNum(grad.od_addition),
+        od_pd:         toNum(grad.od_pd),
+        oi_sphere:     toNum(grad.oi_sphere),
+        oi_cylinder:   toNum(grad.oi_cylinder),
+        oi_axis:       toInt(grad.oi_axis),
+        oi_addition:   toNum(grad.oi_addition),
+        oi_pd:         toNum(grad.oi_pd),
+        lens_type:     lensType || null,
         lens_material: lensMaterial || null,
-        treatments:   selectedTreatments.length > 0 ? selectedTreatments : null,
-        notes:        form.notes || null,
+        treatments:    selectedTreatments.length > 0 ? selectedTreatments : [],  // [] en vez de null — columna NOT NULL
+        notes:         form.notes || null,
       })
+    }
+
+    // 2. Auto-crear venta si hay precio cargado
+    if (priceNum && priceNum > 0) {
+      const payMethod = form.deposit_method || "efectivo"
+      const saleStatus = form.payment_type === "total" ? "completada" : "en_proceso"
+
+      const { data: newSale } = await supabase
+        .from("sales")
+        .insert({
+          tenant_id:    userData!.tenant_id,
+          patient_id:   selectedPatient?.id ?? null,
+          created_by:   user!.id,
+          lab_order_id: order.id,
+          source:       "lab_order",
+          status:       saleStatus,
+          payment_method: payMethod,
+          subtotal:     priceNum,
+          discount:     0,
+          total:        priceNum,
+          notes:        `Trabajo de laboratorio: ${form.work_description}`,
+        })
+        .select("id")
+        .single()
+
+      if (newSale) {
+        await supabase.from("sale_items").insert({
+          sale_id:     newSale.id,
+          tenant_id:   userData!.tenant_id,
+          product_id:  null,
+          description: form.work_description,
+          quantity:    1,
+          unit_price:  priceNum,
+          subtotal:    priceNum,
+        })
+      }
     }
 
     router.push(`/lab-orders/${order.id}`)

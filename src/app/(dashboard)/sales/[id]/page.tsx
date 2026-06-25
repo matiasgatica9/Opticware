@@ -221,8 +221,11 @@ export default function SaleDetailPage() {
                   {items.map(item => (
                     <tr key={item.id}>
                       <td className="px-4 py-2.5">
-                        <p className="font-medium text-gray-900">{item.products?.name}</p>
+                        <p className="font-medium text-gray-900">{item.products?.name ?? item.description ?? "—"}</p>
                         {item.products?.sku && <p className="text-xs text-gray-400">{item.products.sku}</p>}
+                        {!item.products && item.description && (
+                          <p className="text-xs text-gray-400">Trabajo de laboratorio</p>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-center text-gray-600">{item.quantity}</td>
                       <td className="px-4 py-2.5 text-right text-gray-600">{formatCurrency(item.unit_price)}</td>
